@@ -1,0 +1,23 @@
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    gateway:
+      server:
+        webflux:
+          routes:
+            - id: event-service
+              uri: ${EVENT_SERVICE_URL:http://localhost:8081}
+              predicates:
+                - Path=/api/v1/events,/api/v1/events/**,/api/v1/venues,/api/v1/venues/**
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8180/realms/ticketnow
+          audiences:
+            - ticketnow-api
+
+server:
+  port: 8080
