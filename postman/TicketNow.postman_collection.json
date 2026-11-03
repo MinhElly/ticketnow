@@ -1,0 +1,1622 @@
+{
+  "info": {
+    "_postman_id": "9150422e-7c40-516f-9c2b-1b2259823eb6",
+    "name": "TicketNow - Current APIs + Keycloak",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "All 15 current Event Service operations through Gateway, interactive Keycloak PKCE, security checks, refresh/logout and optional admin account provisioning. Import the companion environment and read README.md. No public self-registration API exists; registrationAllowed is false. No live operations were run when generating this file."
+  },
+  "item": [
+    {
+      "name": "00 - Login (interactive PKCE)",
+      "description": "Run discovery, then get 3 separate tokens. Do not use password grant for ticketnow-postman.",
+      "item": [
+        {
+          "name": "01 - OIDC discovery",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{keycloak_url}}/realms/{{realm}}/.well-known/openid-configuration",
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Correct issuer\", () => pm.expect(pm.response.json().issuer).to.eql(pm.variables.replaceIn(\"{{keycloak_url}}/realms/{{realm}}\")));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login admin - PKCE then UserInfo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{keycloak_url}}/realms/{{realm}}/protocol/openid-connect/userinfo",
+            "description": "Authorization > Get New Access Token > login admin01 > Use Token > Send. Copy the access token into environment admin_access_token if it is not saved automatically. This is interactive login, not an automated Runner step.",
+            "auth": {
+              "type": "oauth2",
+              "oauth2": [
+                {
+                  "key": "grant_type",
+                  "value": "authorization_code_with_pkce",
+                  "type": "string"
+                },
+                {
+                  "key": "authUrl",
+                  "value": "{{keycloak_url}}/realms/{{realm}}/protocol/openid-connect/auth",
+                  "type": "string"
+                },
+                {
+                  "key": "accessTokenUrl",
+                  "value": "{{keycloak_url}}/realms/{{realm}}/protocol/openid-connect/token",
+                  "type": "string"
+                },
+                {
+                  "key": "clientId",
+                  "value": "{{client_id}}",
+                  "type": "string"
+                },
+                {
+                  "key": "clientSecret",
+                  "value": "",
+                  "type": "string"
+                },
+                {
+                  "key": "redirect_uri",
+                  "value": "{{callback_url}}",
+                  "type": "string"
+                },
+                {
+                  "key": "scope",
+                  "value": "openid profile email",
+                  "type": "string"
+                },
+                {
+                  "key": "challengeAlgorithm",
+                  "value": "S256",
+                  "type": "string"
+                },
+                {
+                  "key": "client_authentication",
+                  "value": "body",
+                  "type": "string"
+                },
+                {
+                  "key": "addTokenTo",
+                  "value": "header",
+                  "type": "string"
+                },
+                {
+                  "key": "tokenName",
+                  "value": "ticketnow-admin",
+                  "type": "string"
+                },
+                {
+                  "key": "accessToken",
+                  "value": "{{admin_access_token}}",
+                  "type": "string"
+                },
+                {
+                  "key": "useBrowser",
+                  "value": false,
+                  "type": "boolean"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  " const data = pm.response.json();",
+                  " pm.test(\"User subject exists\", () => pm.expect(data.sub).to.be.a(\"string\").and.not.empty);",
+                  " const raw = pm.request.auth && pm.request.auth.oauth2.get(\"accessToken\");",
+                  " const token = typeof raw === \"string\" ? pm.variables.replaceIn(raw) : \"\";",
+                  " if (token && !token.includes(\"{{\")) pm.environment.set(\"admin_access_token\", token);",
+                  " pm.environment.set(\"admin_sub\", data.sub);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login organizer - PKCE then UserInfo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{keycloak_url}}/realms/{{realm}}/protocol/openid-connect/userinfo",
+            "description": "Authorization > Get New Access Token > login organizer01 > Use Token > Send. Copy the access token into environment organizer_access_token if it is not saved automatically. This is interactive login, not an automated Runner step.",
+            "auth": {
+              "type": "oauth2",
+              "oauth2": [
+                {
+                  "key": "grant_type",
+                  "value": "authorization_code_with_pkce",
+                  "type": "string"
+                },
+                {
+                  "key": "authUrl",
+                  "value": "{{keycloak_url}}/realms/{{realm}}/protocol/openid-connect/auth",
+                  "type": "string"
+                },
+                {
+                  "key": "accessTokenUrl",
+                  "value": "{{keycloak_url}}/realms/{{realm}}/protocol/openid-connect/token",
+                  "type": "string"
+                },
+                {
+                  "key": "clientId",
+                  "value": "{{client_id}}",
+                  "type": "string"
+                },
+                {
+                  "key": "clientSecret",
+                  "value": "",
+                  "type": "string"
+                },
+                {
+                  "key": "redirect_uri",
+                  "value": "{{callback_url}}",
+                  "type": "string"
+                },
+                {
+                  "key": "scope",
+                  "value": "openid profile email",
+                  "type": "string"
+                },
+                {
+                  "key": "challengeAlgorithm",
+                  "value": "S256",
+                  "type": "string"
+                },
+                {
+                  "key": "client_authentication",
+                  "value": "body",
+                  "type": "string"
+                },
+                {
+                  "key": "addTokenTo",
+                  "value": "header",
+                  "type": "string"
+                },
+                {
+                  "key": "tokenName",
+                  "value": "ticketnow-organizer",
+                  "type": "string"
+                },
+                {
+                  "key": "accessToken",
+                  "value": "{{organizer_access_token}}",
+                  "type": "string"
+                },
+                {
+                  "key": "useBrowser",
+                  "value": false,
+                  "type": "boolean"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  " const data = pm.response.json();",
+                  " pm.test(\"User subject exists\", () => pm.expect(data.sub).to.be.a(\"string\").and.not.empty);",
+                  " const raw = pm.request.auth && pm.request.auth.oauth2.get(\"accessToken\");",
+                  " const token = typeof raw === \"string\" ? pm.variables.replaceIn(raw) : \"\";",
+                  " if (token && !token.includes(\"{{\")) pm.environment.set(\"organizer_access_token\", token);",
+                  " pm.environment.set(\"organizer_sub\", data.sub);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login customer - PKCE then UserInfo",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{keycloak_url}}/realms/{{realm}}/protocol/openid-connect/userinfo",
+            "description": "Authorization > Get New Access Token > login customer01 > Use Token > Send. Copy the access token into environment customer_access_token if it is not saved automatically. This is interactive login, not an automated Runner step.",
+            "auth": {
+              "type": "oauth2",
+              "oauth2": [
+                {
+                  "key": "grant_type",
+                  "value": "authorization_code_with_pkce",
+                  "type": "string"
+                },
+                {
+                  "key": "authUrl",
+                  "value": "{{keycloak_url}}/realms/{{realm}}/protocol/openid-connect/auth",
+                  "type": "string"
+                },
+                {
+                  "key": "accessTokenUrl",
+                  "value": "{{keycloak_url}}/realms/{{realm}}/protocol/openid-connect/token",
+                  "type": "string"
+                },
+                {
+                  "key": "clientId",
+                  "value": "{{client_id}}",
+                  "type": "string"
+                },
+                {
+                  "key": "clientSecret",
+                  "value": "",
+                  "type": "string"
+                },
+                {
+                  "key": "redirect_uri",
+                  "value": "{{callback_url}}",
+                  "type": "string"
+                },
+                {
+                  "key": "scope",
+                  "value": "openid profile email",
+                  "type": "string"
+                },
+                {
+                  "key": "challengeAlgorithm",
+                  "value": "S256",
+                  "type": "string"
+                },
+                {
+                  "key": "client_authentication",
+                  "value": "body",
+                  "type": "string"
+                },
+                {
+                  "key": "addTokenTo",
+                  "value": "header",
+                  "type": "string"
+                },
+                {
+                  "key": "tokenName",
+                  "value": "ticketnow-customer",
+                  "type": "string"
+                },
+                {
+                  "key": "accessToken",
+                  "value": "{{customer_access_token}}",
+                  "type": "string"
+                },
+                {
+                  "key": "useBrowser",
+                  "value": false,
+                  "type": "boolean"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  " const data = pm.response.json();",
+                  " pm.test(\"User subject exists\", () => pm.expect(data.sub).to.be.a(\"string\").and.not.empty);",
+                  " const raw = pm.request.auth && pm.request.auth.oauth2.get(\"accessToken\");",
+                  " const token = typeof raw === \"string\" ? pm.variables.replaceIn(raw) : \"\";",
+                  " if (token && !token.includes(\"{{\")) pm.environment.set(\"customer_access_token\", token);",
+                  " pm.environment.set(\"customer_sub\", data.sub);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "01 - Venues (admin)",
+      "description": "",
+      "item": [
+        {
+          "name": "Create venue",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/venues",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Test Hall\",\n  \"address\": \"123 Nguyen Hue\",\n  \"city\": \"HCM\",\n  \"capacity\": 100\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) { pm.environment.set(\"venue_id\", pm.response.json().id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List venues",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/venues?page=0&size=20",
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "pm.test(\"Page contract\", () => { const b=pm.response.json(); pm.expect(b.content).to.be.an(\"array\"); pm.expect(b.totalElements).to.be.a(\"number\"); });"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get venue",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/venues/{{venue_id}}",
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update venue",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/venues/{{venue_id}}",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Updated Hall\",\n  \"address\": \"123 Nguyen Hue\",\n  \"city\": \"HCM\",\n  \"capacity\": 100\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{admin_access_token}}",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "name": "02 - Events (organizer)",
+      "description": "",
+      "item": [
+        {
+          "name": "Create draft event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/events",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Postman Test Concert\",\n  \"description\": \"Created by TicketNow collection\",\n  \"venueId\": \"{{venue_id}}\",\n  \"startsAt\": \"{{starts_at}}\",\n  \"endsAt\": \"{{ends_at}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) { pm.environment.set(\"event_id\", pm.response.json().id); }",
+                  "if (pm.response.code === 201) {",
+                  " const b = pm.response.json();",
+                  " pm.test(\"Created as DRAFT\", () => pm.expect(b.status).to.eql(\"DRAFT\"));",
+                  " pm.test(\"Organizer is JWT subject\", () => pm.expect(b.organizerId).to.eql(pm.environment.get(\"organizer_sub\")));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List public events",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/events?page=0&size=20",
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "if(pm.response.code === 200) pm.test(\"No private events in list\", () => {",
+                  " pm.response.json().content.forEach(e => pm.expect([\"PUBLISHED\",\"ON_SALE\",\"CLOSED\"]).to.include(e.status));",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get own draft",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/events/{{event_id}}",
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update own draft",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/events/{{event_id}}",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Postman Updated Concert\",\n  \"description\": \"Created by TicketNow collection\",\n  \"venueId\": \"{{venue_id}}\",\n  \"startsAt\": \"{{starts_at}}\",\n  \"endsAt\": \"{{ends_at}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{organizer_access_token}}",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "name": "03 - Ticket tiers (organizer)",
+      "description": "",
+      "item": [
+        {
+          "name": "Create ticket tier",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/events/{{event_id}}/ticket-tiers",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"VIP\",\n  \"price\": 500000,\n  \"currency\": \"VND\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) { pm.environment.set(\"tier_id\", pm.response.json().id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List ticket tiers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/events/{{event_id}}/ticket-tiers",
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get ticket tier",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/events/{{event_id}}/ticket-tiers/{{tier_id}}",
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update ticket tier",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/events/{{event_id}}/ticket-tiers/{{tier_id}}",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"VIP\",\n  \"price\": 600000,\n  \"currency\": \"VND\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{organizer_access_token}}",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "name": "04 - Security checks",
+      "description": "",
+      "item": [
+        {
+          "name": "No token returns 401",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/events",
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Invalid token returns 401",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/events",
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "invalid-token",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 401\", () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Customer cannot create venue",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/venues",
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customer_access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Postman Test Hall\",\n  \"address\": \"123 Nguyen Hue\",\n  \"city\": \"HCM\",\n  \"capacity\": 100\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Customer cannot create event",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/events",
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customer_access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Postman Test Concert\",\n  \"description\": \"Created by TicketNow collection\",\n  \"venueId\": \"{{venue_id}}\",\n  \"startsAt\": \"{{starts_at}}\",\n  \"endsAt\": \"{{ends_at}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Customer cannot read draft",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/events/{{event_id}}",
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customer_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Customer cannot list private tiers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/events/{{event_id}}/ticket-tiers",
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customer_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Customer cannot read private tier",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/events/{{event_id}}/ticket-tiers/{{tier_id}}",
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customer_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Customer cannot edit draft",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/events/{{event_id}}",
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customer_access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Postman Test Concert\",\n  \"description\": \"Created by TicketNow collection\",\n  \"venueId\": \"{{venue_id}}\",\n  \"startsAt\": \"{{starts_at}}\",\n  \"endsAt\": \"{{ends_at}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Other organizer cannot edit draft",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/events/{{event_id}}",
+            "description": "Optional: get a token for a different organizer account and set other_organizer_access_token.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{other_organizer_access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Postman Test Concert\",\n  \"description\": \"Created by TicketNow collection\",\n  \"venueId\": \"{{venue_id}}\",\n  \"startsAt\": \"{{starts_at}}\",\n  \"endsAt\": \"{{ends_at}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.environment.get(\"other_organizer_access_token\")) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Invalid pagination returns 400",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/events?size=101",
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{organizer_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 400\", () => pm.response.to.have.status(400));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "05 - Registration (optional admin provisioning)",
+      "description": "Self-registration is currently DISABLED (registrationAllowed=false); there is no /api/v1/auth/register. Set enable_admin_registration=true explicitly, fill local admin credentials and new user fields, then send 01-05 in order. Newly created users log in through the PKCE helper with their own credentials.",
+      "item": [
+        {
+          "name": "01 - Login Keycloak master admin",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{keycloak_url}}/realms/master/protocol/openid-connect/token",
+            "description": "Local Keycloak administration only. Use KC_ADMIN_USERNAME/KC_ADMIN_PASSWORD, not admin01. Password grant applies only to master/admin-cli here; application login uses PKCE.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "password",
+                  "type": "text"
+                },
+                {
+                  "key": "client_id",
+                  "value": "admin-cli",
+                  "type": "text"
+                },
+                {
+                  "key": "username",
+                  "value": "{{keycloak_admin_username}}",
+                  "type": "text"
+                },
+                {
+                  "key": "password",
+                  "value": "{{keycloak_admin_password}}",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.environment.get(\"enable_admin_registration\") !== \"true\") pm.execution.skipRequest();",
+                  "else if (!pm.environment.get(\"keycloak_admin_username\") || !pm.environment.get(\"keycloak_admin_password\")) throw new Error(\"Fill local Keycloak master admin credentials first\");"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  " const b=pm.response.json(); pm.expect(b.access_token).to.be.a(\"string\");",
+                  " pm.environment.set(\"keycloak_admin_access_token\", b.access_token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "02 - Create user (register via admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{keycloak_url}}/admin/realms/{{realm}}/users",
+            "description": "Creates a persistent Keycloak account. Choose a new username/email for each run. Does not enable public signup or assign organizer/admin.",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{keycloak_admin_access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{new_username}}\",\n  \"email\": \"{{new_email}}\",\n  \"firstName\": \"Postman\",\n  \"lastName\": \"Customer\",\n  \"enabled\": true,\n  \"emailVerified\": false,\n  \"credentials\": [\n    {\n      \"type\": \"password\",\n      \"value\": \"{{new_user_password}}\",\n      \"temporary\": false\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.environment.get(\"enable_admin_registration\") !== \"true\") pm.execution.skipRequest();",
+                  "if (pm.environment.get(\"enable_admin_registration\") === \"true\") {",
+                  " for (const key of [\"new_username\", \"new_email\", \"new_user_password\"]) {",
+                  "  if (!pm.environment.get(key)) throw new Error(\"Fill \" + key + \" first\");",
+                  " }",
+                  " pm.request.body.update(JSON.stringify({",
+                  "  username: pm.environment.get(\"new_username\"), email: pm.environment.get(\"new_email\"),",
+                  "  firstName: \"Postman\", lastName: \"Customer\", enabled: true, emailVerified: false,",
+                  "  credentials: [{type: \"password\", value: pm.environment.get(\"new_user_password\"), temporary: false}]",
+                  " }));",
+                  "}"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) {",
+                  " const location=pm.response.headers.get(\"Location\");",
+                  " pm.test(\"Location contains new user id\", () => pm.expect(location).to.be.a(\"string\").and.not.empty);",
+                  " if(location) pm.environment.set(\"new_user_id\", location.split(\"/\").pop());",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "03 - Read customer role",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{keycloak_url}}/admin/realms/{{realm}}/roles/customer",
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{keycloak_admin_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.environment.get(\"enable_admin_registration\") !== \"true\") pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "if(pm.response.code === 200) pm.environment.set(\"customer_role_id\", pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "04 - Assign customer role",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{keycloak_url}}/admin/realms/{{realm}}/users/{{new_user_id}}/role-mappings/realm",
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{keycloak_admin_access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "[\n  {\n    \"id\": \"{{customer_role_id}}\",\n    \"name\": \"customer\"\n  }\n]",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.environment.get(\"enable_admin_registration\") !== \"true\") pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "05 - Verify customer role",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{keycloak_url}}/admin/realms/{{realm}}/users/{{new_user_id}}/role-mappings/realm",
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{keycloak_admin_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.environment.get(\"enable_admin_registration\") !== \"true\") pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "if(pm.response.code === 200) pm.test(\"Customer role assigned\", () => pm.expect(pm.response.json().map(r=>r.name)).to.include(\"customer\"));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "06 - Refresh and logout (optional)",
+      "description": "",
+      "item": [
+        {
+          "name": "Refresh organizer token",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{keycloak_url}}/realms/{{realm}}/protocol/openid-connect/token",
+            "description": "Copy the organizer refresh_token from the PKCE token dialog into organizer_refresh_token first.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "grant_type",
+                  "value": "refresh_token",
+                  "type": "text"
+                },
+                {
+                  "key": "client_id",
+                  "value": "{{client_id}}",
+                  "type": "text"
+                },
+                {
+                  "key": "refresh_token",
+                  "value": "{{organizer_refresh_token}}",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.environment.get(\"organizer_refresh_token\")) pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  " const b=pm.response.json(); pm.environment.set(\"organizer_access_token\",b.access_token);",
+                  " if(b.refresh_token) pm.environment.set(\"organizer_refresh_token\",b.refresh_token);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Logout organizer session",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{keycloak_url}}/realms/{{realm}}/protocol/openid-connect/logout",
+            "description": "Ends the Keycloak session. Existing JWT access tokens can remain valid until expiry at resource servers.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "urlencoded",
+              "urlencoded": [
+                {
+                  "key": "client_id",
+                  "value": "{{client_id}}",
+                  "type": "text"
+                },
+                {
+                  "key": "refresh_token",
+                  "value": "{{organizer_refresh_token}}",
+                  "type": "text"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.environment.get(\"enable_logout\") !== \"true\") pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 204\", () => pm.response.to.have.status(204));",
+                  "if(pm.response.code === 204) {",
+                  " pm.environment.unset(\"organizer_access_token\"); pm.environment.unset(\"organizer_refresh_token\");",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "07 - Cleanup (optional, deletes test data)",
+      "description": "Set enable_cleanup=true, then run in order after the other tests. Deletes the resources whose IDs are in the selected environment.",
+      "item": [
+        {
+          "name": "Delete ticket tier",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{base_url}}/api/v1/events/{{event_id}}/ticket-tiers/{{tier_id}}",
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{organizer_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.environment.get(\"enable_cleanup\") !== \"true\") pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete draft event",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{base_url}}/api/v1/events/{{event_id}}",
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{organizer_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.environment.get(\"enable_cleanup\") !== \"true\") pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Delete venue",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{base_url}}/api/v1/venues/{{venue_id}}",
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.environment.get(\"enable_cleanup\") !== \"true\") pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
