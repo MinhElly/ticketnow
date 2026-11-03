@@ -11,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
@@ -32,11 +33,13 @@ public class VenueService {
         return PageResponse.from(venues.findAll(PageRequest.of(page, size, Sort.by("id"))).map(VenueResponse::from));
     }
 
+    @PreAuthorize("hasRole('admin')")
     @Transactional
     public VenueResponse create(VenueRequest r) {
         return VenueResponse.from(venues.save(new Venue(r.name().trim(), r.address().trim(), r.city().trim(), r.capacity())));
     }
 
+    @PreAuthorize("hasRole('admin')")
     @Transactional
     public VenueResponse update(String id, VenueRequest r) {
         Venue v = require(id);
@@ -47,6 +50,7 @@ public class VenueService {
         return VenueResponse.from(venues.save(v));
     }
 
+    @PreAuthorize("hasRole('admin')")
     @Transactional
     public void delete(String id) {
         Venue v = require(id);

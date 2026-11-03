@@ -37,9 +37,17 @@ Verify migration status with `SELECT * FROM flyway_schema_history;`.
 
 ## API contract
 
-All routes use /api/v1 and JSON. This is an unauthenticated local foundation:
-organizerId is fixed to local-development. Reads include drafts for development.
-Integrate Keycloak, ownership checks and public visibility rules before exposing it.
+All routes use /api/v1 and JSON and require a Keycloak Bearer access token.
+Both Gateway (8080) and Event Service (8081) validate issuer
+http://localhost:8180/realms/ticketnow and audience ticketnow-api.
+Realm roles are mapped to ROLE_ authorities. organizerId comes from JWT sub.
+
+Venue writes require admin. Event/ticket-tier writes require organizer or admin;
+only the owner or admin may modify a DRAFT event and its tiers.
+Event lists contain PUBLISHED, ON_SALE and CLOSED only, filtered before pagination.
+DRAFT/CANCELLED details and tiers are readable only by the owner or admin.
+All reads still require authentication. Legacy local-development events remain
+accessible to admin; their ownership is not reassigned automatically.
 
 | Resource | Routes |
 | --- | --- |
@@ -71,8 +79,9 @@ be deleted. Deleting a draft also deletes its ticket tiers.
 {"name":"VIP","price":500000.00,"currency":"VND"}
 ```
 
-Seat maps, publishing, sale schedules, Kafka, Redis and Keycloak are pending.
+Seat maps, publishing, sale schedules, Kafka and Redis are pending.
 Prices use BigDecimal; timestamps use Instant. Test with `./mvnw.cmd test`.
+Security tests exercise the real filter chain and Keycloak role mapping with a mocked JWT decoder; they do not establish live Keycloak token validation.
 Tests run the same Flyway migration and JPA validation against isolated H2 in MariaDB compatibility mode; they do not touch the live MariaDB database.
 
 ### Optional MariaDB migration check

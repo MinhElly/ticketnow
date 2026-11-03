@@ -25,5 +25,12 @@ spring:
         format_sql: true
         jdbc:
           time_zone: UTC
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8180/realms/ticketnow
+          audiences:
+            - ticketnow-api
 server:
   port: 8081

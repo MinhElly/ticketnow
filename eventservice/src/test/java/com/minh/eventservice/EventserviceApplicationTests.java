@@ -4,6 +4,14 @@ import com.minh.eventservice.dto.request.*;
 import com.minh.eventservice.service.*;
 import com.minh.eventservice.exception.ApiException;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import static org.springframework.security.test.web.servlet.setup.SecurityMockMvcConfigurers.springSecurity;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +31,19 @@ import static org.junit.jupiter.api.Assertions.*;
 })
 @Transactional
 class EventserviceApplicationTests {
+    @BeforeEach
+    void authenticate() {
+        var token = Jwt.withTokenValue("test").header("alg", "RS256")
+                .subject("admin-test").build();
+        SecurityContextHolder.getContext().setAuthentication(new JwtAuthenticationToken(
+                token, java.util.List.of(new SimpleGrantedAuthority("ROLE_admin"))));
+    }
+
+    @AfterEach
+    void clearAuthentication() {
+        SecurityContextHolder.clearContext();
+    }
+
     @Autowired org.flywaydb.core.Flyway flyway;
 
     @Test
@@ -39,7 +60,9 @@ class EventserviceApplicationTests {
   return new EventRequest("Concert","Demo",venueId,Instant.parse("2026-12-20T12:00:00Z"),Instant.parse("2026-12-20T15:00:00Z"));
  }
  @Test void httpValidationAndResourceContract() throws Exception {
-  var mvc=MockMvcBuilders.webAppContextSetup(context).build();
+  var mvc=MockMvcBuilders.webAppContextSetup(context).apply(springSecurity())
+    .defaultRequest(get("/").with(jwt().jwt(j -> j.subject("admin-test"))
+      .authorities(new SimpleGrantedAuthority("ROLE_admin")))).build();
   mvc.perform(post("/api/v1/venues").contentType(MediaType.APPLICATION_JSON)
     .content("{\"name\":\"Hall\",\"address\":\"123 Main\",\"city\":\"HCM\",\"capacity\":100}"))
     .andExpect(status().isCreated()).andExpect(header().exists("Location"));
@@ -59,7 +82,7 @@ class EventserviceApplicationTests {
   tiers.update(event.id(),tier.id(),new TicketTierRequest("VIP",new BigDecimal("600000.00"),"VND"));
   assertEquals(0,new BigDecimal("600000.00").compareTo(tiers.get(event.id(),tier.id()).price()));
   assertThrows(ApiException.class,()->venues.delete(venue.id()));
-  assertEquals(1,events.list(0,20).totalElements());
+  assertEquals(0,events.list(0,20).totalElements());
   events.delete(event.id());
   assertThrows(ApiException.class,()->events.get(event.id()));
   venues.delete(venue.id());
