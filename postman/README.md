@@ -5,7 +5,7 @@
 1. Postman Desktop > Import > chọn `TicketNow.postman_collection.json` và
    `TicketNow.local.postman_environment.json`.
 2. Chọn environment **TicketNow - Local** ở góc trên bên phải.
-3. Khởi động MariaDB, Keycloak (:8180), Event Service (:8081), Gateway (:8080).
+3. Khởi động MariaDB, Redis (:6379), Keycloak (:8180), Event Service (:8081), Seat Inventory (:8083), Gateway (:8080).
 4. Mở **00 - Login > 01 - OIDC discovery**, Send: mong đợi 200.
 5. Mở **Login admin - PKCE then UserInfo**, tab Authorization:
    - Type OAuth 2.0 đã cấu hình sẵn.
@@ -28,13 +28,13 @@ Không dùng ID token thay cho access token. Giữ token/password ở giá trị
 không sync hoặc export các giá trị đã điền vào Git. File environment đi kèm
 chỉ chứa trường bí mật rỗng; type secret chỉ che UI, không mã hóa file export.
 
-## Chạy 26 endpoint nghiệp vụ
+## Chạy 31 endpoint nghiệp vụ
 
-Chạy theo thứ tự folder **01 Venues > 02 Events > 03 Ticket tiers > 04 Seat sections & Seatmap > 05 Event lifecycle > 06 Security**.
+Chạy theo thứ tự folder **01 Venues > 02 Events > 03 Ticket tiers > 04 Seat sections & Seatmap > 05 Event lifecycle > 06 Seat inventory > 07 Security**.
 Có thể chọn riêng các folder này trong Collection Runner sau khi đã lấy token.
 Không chạy toàn bộ collection từ đầu trong Runner: PKCE cần đăng nhập tương tác.
 
-- Venues dùng token admin; Events/Tiers/Sections/Lifecycle dùng token organizer.
+- Venues dùng token admin; Events/Tiers/Sections/Lifecycle dùng token organizer; Seats/Hold/Release/Confirm dùng customer/organizer.
 - POST thành công tự lưu `venue_id`, `event_id`, `tier_id`, `section_id`, `lifecycle_event_id`, v.v. trong environment.
 - PUT dùng body mẫu đầy đủ; danh sách hỗ trợ page/size.
 - GET `/events/me` trả danh sách sự kiện do chính organizer đang đăng nhập tạo,
@@ -44,21 +44,26 @@ Không chạy toàn bộ collection từ đầu trong Runner: PKCE cần đăng 
   ghế dạng `{section}-{row:02d}-{seat:02d}` (ví dụ `A-01-01`).
 - Vòng đời sự kiện (Event lifecycle):
   * DRAFT -> PUBLISHED (`POST /events/{id}/publish`): yêu cầu có ít nhất 1 tier, 1 section, tổng ghế > 0 và <= venue.capacity.
+    Tự động sinh và khởi tạo toàn bộ ghế sang **Seat Inventory Service**. Nếu khởi tạo kho ghế thất bại, sự kiện vẫn giữ nguyên DRAFT.
   * PUBLISHED -> ON_SALE (`PUT /events/{id}/on-sale`): mở bán vé.
   * ON_SALE -> CLOSED (`POST /events/{id}/close`): đóng bán vé.
-  * DRAFT / PUBLISHED / ON_SALE / CLOSED -> CANCELLED (`POST /events/{id}/cancel`): hủy sự kiện.
+  * DRAFT / PUBLISHED / ON_SALE -> CANCELLED (`POST /events/{id}/cancel`): hủy sự kiện. Sự kiện đã CLOSED không thể hủy.
   * Các sự kiện đã PUBLISHED hoặc ON_SALE sẽ bị khóa bất biến (chặn sửa draft, sửa tier, sửa section).
-- Event tạo ra ở DRAFT, chỉ chủ sở hữu/admin đọc được; không xuất hiện trong
-  danh sách chung. `organizerId` phải trùng `organizer_sub` đã lưu qua UserInfo.
-- Security kiểm tra 401, 403, phân trang sai 400 và bảo vệ bản nháp/hạng vé/khu vực ghế/lifecycle.
+- Kho ghế và Giữ chỗ (Seat Inventory):
+  * `POST /events/{id}/seats/initialize`: Khởi tạo kho ghế từ danh sách ghế (organizer/admin).
+  * `GET /events/{id}/seats`: Xem trạng thái thời gian thực của từng ghế (AVAILABLE, HELD, SOLD).
+  * `POST /events/{id}/seats/hold`: Giữ danh sách ghế all-or-nothing (có TTL, mặc định 600s/10 phút).
+  * `POST /events/{id}/seats/release`: Giải phóng ghế đã giữ khi khách hủy.
+  * `POST /events/{id}/seats/confirm`: Xác nhận thanh toán xong (`HELD -> SOLD`).
+- Security kiểm tra 401, 403, phân trang sai 400 và bảo vệ bản nháp/hạng vé/khu vực ghế/lifecycle/khởi tạo ghế.
 - Test organizer khác tự bỏ qua nếu `other_organizer_access_token` trống.
   Tạo organizer thứ hai và lấy token của người đó nếu muốn kiểm tra case này.
 - Các lần chạy mới tạo dữ liệu mới và ghi đè ID test trong environment.
 
 GET/POST/PUT/DELETE của các tài nguyên đều có trong collection. Các request DELETE được
-đặt cuối ở **09 Cleanup** để không xóa dữ liệu trước các test đọc/phân quyền.
+đặt cuối ở **10 Cleanup** để không xóa dữ liệu trước các test đọc/phân quyền.
 Thứ tự xóa tuân thủ toàn vẹn khóa ngoại: section > tier > draft event > venue.
-Đặt `enable_cleanup=true` rồi chạy folder 09. Kiểm tra ID trong environment trước khi chạy;
+Đặt `enable_cleanup=true` rồi chạy folder 10. Kiểm tra ID trong environment trước khi chạy;
 đặt lại false sau đó.
 
 ## Đăng ký / tạo tài khoản
@@ -67,7 +72,7 @@ Thứ tự xóa tuân thủ toàn vẹn khóa ngoại: section > tier > draft ev
 `registrationAllowed=false`, không thể dùng Postman POST `/register` để tự đăng ký.
 Collection không thay đổi thiết lập này và không tạo endpoint giả.
 
-Folder **07 Registration** là luồng quản trị cấp tài khoản qua Keycloak Admin REST API:
+Folder **08 Registration** là luồng quản trị cấp tài khoản qua Keycloak Admin REST API:
 
 1. Điền environment local:
    - `enable_admin_registration=true`
@@ -96,7 +101,7 @@ Keycloak registration và chính sách default role customer, xác minh email.
 ## Refresh / logout
 
 - Copy refresh_token từ hộp thoại PKCE vào `organizer_refresh_token`.
-- **08 Refresh** đổi access token và lưu refresh token mới nếu có.
+- **09 Refresh** đổi access token và lưu refresh token mới nếu có.
 - Chỉ đặt `enable_logout=true` khi muốn kết thúc phiên; logout chạy sau CRUD.
 - Logout session không đảm bảo JWT access token bị từ chối ngay tại service:
   service xác thực JWT offline có thể chấp nhận tới lúc hết hạn.
@@ -107,22 +112,22 @@ Keycloak registration và chính sách default role customer, xác minh email.
   `/v1/browser-callback` nếu chưa cấu hình Keycloak.
 - 401: token hết hạn, sai issuer/audience, hoặc chưa điền token vào environment.
 - 403: sai role/chủ sở hữu hoặc đang cố đọc bản nháp của người khác.
-- 409 khi sửa/xóa: sự kiện không còn DRAFT hoặc dữ liệu đang được tham chiếu (ví dụ xóa hạng vé đang gắn với khu vực ghế).
-- 5xx từ Gateway: kiểm tra Event Service :8081 và MariaDB.
+- 409 khi sửa/xóa: sự kiện không còn DRAFT hoặc dữ liệu đang được tham chiếu (ví dụ xóa hạng vé đang gắn với khu vực ghế) hoặc tranh chấp giữ ghế.
+- 5xx từ Gateway: kiểm tra Event Service :8081, Seat Inventory :8083, MariaDB :3307, Redis :6379.
 - Import JSON sửa rồi restart không cập nhật realm đã tồn tại.
 
 ## Phạm vi kiểm tra artifact
 
 Collection v2.1 được tạo để import trực tiếp vào Postman Desktop.
 `python postman/build_collection.py` tái tạo collection/environment rỗng từ mẫu.
-`python postman/validate_collection.py` kiểm tra độ phủ 26 operation từ controller,
-59 request, biến tham chiếu, token/password rỗng và cú pháp JavaScript bằng Node.js.
+`python postman/validate_collection.py` kiểm tra độ phủ 31 operation từ controller,
+65 request, biến tham chiếu, token/password rỗng và cú pháp JavaScript bằng Node.js.
 CLI `postman collection lint` hiện tại báo Scanned: 0 cho JSON v2.1, nên không
 được coi là bằng chứng lint/schema thành công.
 Kiểm tra cấu trúc và script không thay thế chạy API thật; việc tạo collection
 không đăng nhập, tạo tài khoản hay xóa dữ liệu trên Keycloak/MariaDB.
 
-Nguồn: controller/DTO/security của Event Service và realm JSON trong repository.
+Nguồn: controller/DTO/security của Event Service, Seat Inventory Service và realm JSON trong repository.
 Tài liệu tham chiếu:
 - https://learning.postman.com/docs/use/send-requests/authorization/oauth-20/
 - https://www.keycloak.org/docs/26.5.7/server_development/

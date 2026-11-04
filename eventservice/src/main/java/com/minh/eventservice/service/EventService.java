@@ -1,10 +1,13 @@
 package com.minh.eventservice.service;
 
+import com.minh.eventservice.client.SeatInventoryClient;
+import com.minh.eventservice.client.SeatSpec;
 import com.minh.eventservice.config.CurrentUser;
 import com.minh.eventservice.dto.request.EventRequest;
 import com.minh.eventservice.dto.response.EventResponse;
 import com.minh.eventservice.dto.response.PageResponse;
 import com.minh.eventservice.entity.Event;
+import com.minh.eventservice.entity.SeatSection;
 import com.minh.eventservice.enums.EventStatus;
 import com.minh.eventservice.exception.ApiException;
 import com.minh.eventservice.repository.EventRepository;
@@ -20,6 +23,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -31,6 +35,7 @@ public class EventService {
     private final TicketTierRepository tiers;
     private final SeatSectionRepository sections;
     private final CurrentUser currentUser;
+    private final SeatInventoryClient seatInventoryClient;
 
     public void requireOwnerOrAdmin(Event event){
         if(!currentUser.isAdmin() && !currentUser.subject().equals(event.getOrganizerId())){
@@ -68,10 +73,12 @@ public class EventService {
     public PageResponse<EventResponse> listMine(int page, int size, EventStatus status) {
         var pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by("id")));
         String organizerId = currentUser.subject();
-        Page<Event> result = (status != null)
+
+        Page<Event> eventPage = (status != null)
                 ? events.findByOrganizerIdAndStatus(organizerId, status, pageable)
                 : events.findByOrganizerId(organizerId, pageable);
-        return PageResponse.from(result.map(EventResponse::from));
+
+        return PageResponse.from(eventPage.map(EventResponse::from));
     }
 
     private void apply(Event e, EventRequest r) {
@@ -136,6 +143,19 @@ public class EventService {
         if (totalSeats > e.getVenue().getCapacity()) {
             throw ApiException.badRequest("Configured seats (" + totalSeats + ") exceed venue capacity (" + e.getVenue().getCapacity() + ")");
         }
+
+        // Khởi tạo toàn bộ ghế sang seat-inventory trước khi chuyển trạng thái
+        List<SeatSpec> specs = new ArrayList<>();
+        for (SeatSection sec : sectionList) {
+            for (int r = 1; r <= sec.getRowCount(); r++) {
+                for (int s = 1; s <= sec.getSeatsPerRow(); s++) {
+                    String seatId = String.format("%s-%02d-%02d", sec.getName(), r, s);
+                    specs.add(new SeatSpec(seatId, sec.getTier().getId()));
+                }
+            }
+        }
+        seatInventoryClient.initializeSeats(id, specs);
+
         e.setStatus(EventStatus.PUBLISHED);
         return EventResponse.from(events.saveAndFlush(e));
     }
@@ -146,7 +166,7 @@ public class EventService {
         Event e = require(id);
         requireOwnerOrAdmin(e);
         if (e.getStatus() != EventStatus.PUBLISHED) {
-            throw ApiException.conflict("Event must be in PUBLISHED status to open on-sale (current status: " + e.getStatus() + ")");
+            throw ApiException.conflict("Only published events can be opened for sale (current status: " + e.getStatus() + ")");
         }
         e.setStatus(EventStatus.ON_SALE);
         return EventResponse.from(events.saveAndFlush(e));
@@ -157,8 +177,8 @@ public class EventService {
     public EventResponse close(String id) {
         Event e = require(id);
         requireOwnerOrAdmin(e);
-        if (e.getStatus() != EventStatus.PUBLISHED && e.getStatus() != EventStatus.ON_SALE) {
-            throw ApiException.conflict("Only PUBLISHED or ON_SALE events can be closed (current status: " + e.getStatus() + ")");
+        if (e.getStatus() != EventStatus.ON_SALE) {
+            throw ApiException.conflict("Only on-sale events can be closed (current status: " + e.getStatus() + ")");
         }
         e.setStatus(EventStatus.CLOSED);
         return EventResponse.from(events.saveAndFlush(e));
@@ -173,7 +193,7 @@ public class EventService {
             throw ApiException.conflict("Event is already cancelled");
         }
         if (e.getStatus() == EventStatus.CLOSED) {
-            throw ApiException.conflict("Cannot cancel a closed event");
+            throw ApiException.conflict("Closed events cannot be cancelled");
         }
         e.setStatus(EventStatus.CANCELLED);
         return EventResponse.from(events.saveAndFlush(e));

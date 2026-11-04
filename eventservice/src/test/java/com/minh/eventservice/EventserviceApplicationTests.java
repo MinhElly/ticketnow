@@ -21,6 +21,11 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.http.MediaType;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import com.minh.eventservice.client.SeatInventoryClient;
+import org.mockito.Mockito;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
 import java.time.Instant;
 import java.math.BigDecimal;
 import static org.junit.jupiter.api.Assertions.*;
@@ -31,7 +36,16 @@ import static org.junit.jupiter.api.Assertions.*;
  "spring.jpa.hibernate.ddl-auto=validate", "spring.jpa.show-sql=false"
 })
 @Transactional
+@Import(EventserviceApplicationTests.TestConfig.class)
 class EventserviceApplicationTests {
+
+    @TestConfiguration(proxyBeanMethods = false)
+    static class TestConfig {
+        @Bean
+        SeatInventoryClient seatInventoryClient() {
+            return Mockito.mock(SeatInventoryClient.class);
+        }
+    }
     @BeforeEach
     void authenticate() {
         var token = Jwt.withTokenValue("test").header("alg", "RS256")

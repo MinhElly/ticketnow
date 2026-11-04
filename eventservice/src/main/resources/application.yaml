@@ -34,3 +34,6 @@ spring:
             - ticketnow-api
 server:
   port: 8081
+
+seat-inventory:
+  url: ${SEAT_INVENTORY_URL:http://localhost:8083}

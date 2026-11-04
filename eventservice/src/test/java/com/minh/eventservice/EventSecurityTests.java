@@ -3,6 +3,9 @@ package com.minh.eventservice;
 import com.minh.eventservice.entity.*;
 import com.minh.eventservice.enums.EventStatus;
 import com.minh.eventservice.repository.*;
+import com.minh.eventservice.client.SeatInventoryClient;
+import com.minh.eventservice.exception.ApiException;
+import org.mockito.Mockito;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,6 +40,7 @@ class EventSecurityTests {
  @Autowired VenueRepository venues;
  @Autowired TicketTierRepository tiers;
  @Autowired SeatSectionRepository sections;
+ @Autowired SeatInventoryClient seatInventoryClient;
  // Mock only decoding; exercise the actual filters, role converter and services.
  @TestConfiguration(proxyBeanMethods = false)
  static class Tokens {
@@ -51,6 +55,9 @@ class EventSecurityTests {
     return Jwt.withTokenValue(value).header("alg", "RS256").subject(value)
      .claim("realm_access", Map.of("roles", List.of(role))).build();
    };
+  }
+  @Bean SeatInventoryClient seatInventoryClient() {
+   return Mockito.mock(SeatInventoryClient.class);
   }
  }
  MockMvc mvc;
@@ -357,6 +364,25 @@ class EventSecurityTests {
   // cannot cancel already cancelled event
   mvc.perform(post(cancelPath + "/cancel").header("Authorization", "Bearer owner"))
    .andExpect(status().isConflict());
+ }
+ @Test void publishFailsIfSeatInventoryFailsLeavesDraft() throws Exception {
+  Event eventToPub = event("owner", EventStatus.DRAFT, "Pub Fail Test");
+  TicketTier t = new TicketTier(); t.setEvent(eventToPub); t.setName("T");
+  t.setPrice(BigDecimal.TEN); t.setCurrency("VND"); tiers.saveAndFlush(t);
+  SeatSection sec = new SeatSection(); sec.setEvent(eventToPub); sec.setTier(t);
+  sec.setName("S"); sec.setRowCount(1); sec.setSeatsPerRow(5);
+  sec.setId(java.util.UUID.randomUUID().toString());
+  sec.setCreatedAt(Instant.now()); sec.setUpdatedAt(Instant.now());
+  sections.saveAndFlush(sec);
+
+  Mockito.doThrow(ApiException.badRequest("Inventory unreachable"))
+   .when(seatInventoryClient).initializeSeats(Mockito.eq(eventToPub.getId()), Mockito.anyList());
+
+  mvc.perform(post("/api/v1/events/" + eventToPub.getId() + "/publish").header("Authorization", "Bearer owner"))
+   .andExpect(status().isBadRequest());
+
+  Event after = events.findById(eventToPub.getId()).orElseThrow();
+  org.junit.jupiter.api.Assertions.assertEquals(EventStatus.DRAFT, after.getStatus());
  }
  @Test void venueWritesRequireAdmin() throws Exception {
   String body = "{\"name\":\"Hall\",\"address\":\"Address\",\"city\":\"HCM\",\"capacity\":100}";
