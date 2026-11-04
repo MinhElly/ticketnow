@@ -28,31 +28,37 @@ Không dùng ID token thay cho access token. Giữ token/password ở giá trị
 không sync hoặc export các giá trị đã điền vào Git. File environment đi kèm
 chỉ chứa trường bí mật rỗng; type secret chỉ che UI, không mã hóa file export.
 
-## Chạy 22 endpoint nghiệp vụ
+## Chạy 26 endpoint nghiệp vụ
 
-Chạy theo thứ tự folder **01 Venues > 02 Events > 03 Ticket tiers > 04 Seat sections & Seatmap > 05 Security**.
+Chạy theo thứ tự folder **01 Venues > 02 Events > 03 Ticket tiers > 04 Seat sections & Seatmap > 05 Event lifecycle > 06 Security**.
 Có thể chọn riêng các folder này trong Collection Runner sau khi đã lấy token.
 Không chạy toàn bộ collection từ đầu trong Runner: PKCE cần đăng nhập tương tác.
 
-- Venues dùng token admin; Events/Tiers/Sections dùng token organizer.
-- POST thành công tự lưu `venue_id`, `event_id`, `tier_id`, `section_id` trong environment.
+- Venues dùng token admin; Events/Tiers/Sections/Lifecycle dùng token organizer.
+- POST thành công tự lưu `venue_id`, `event_id`, `tier_id`, `section_id`, `lifecycle_event_id`, v.v. trong environment.
 - PUT dùng body mẫu đầy đủ; danh sách hỗ trợ page/size.
 - GET `/events/me` trả danh sách sự kiện do chính organizer đang đăng nhập tạo,
   hỗ trợ phân trang và lọc theo `status` (ví dụ `DRAFT`).
 - Sơ đồ ghế (Seatmap & Sections) gắn trực tiếp với Event và Hạng vé (`TicketTier`),
   kiểm tra tổng số ghế không vượt quá sức chứa Venue (`capacity`), tự động sinh mã
   ghế dạng `{section}-{row:02d}-{seat:02d}` (ví dụ `A-01-01`).
+- Vòng đời sự kiện (Event lifecycle):
+  * DRAFT -> PUBLISHED (`POST /events/{id}/publish`): yêu cầu có ít nhất 1 tier, 1 section, tổng ghế > 0 và <= venue.capacity.
+  * PUBLISHED -> ON_SALE (`PUT /events/{id}/on-sale`): mở bán vé.
+  * ON_SALE -> CLOSED (`POST /events/{id}/close`): đóng bán vé.
+  * DRAFT / PUBLISHED / ON_SALE / CLOSED -> CANCELLED (`POST /events/{id}/cancel`): hủy sự kiện.
+  * Các sự kiện đã PUBLISHED hoặc ON_SALE sẽ bị khóa bất biến (chặn sửa draft, sửa tier, sửa section).
 - Event tạo ra ở DRAFT, chỉ chủ sở hữu/admin đọc được; không xuất hiện trong
   danh sách chung. `organizerId` phải trùng `organizer_sub` đã lưu qua UserInfo.
-- Security kiểm tra 401, 403, phân trang sai 400 và bảo vệ bản nháp/hạng vé/khu vực ghế.
+- Security kiểm tra 401, 403, phân trang sai 400 và bảo vệ bản nháp/hạng vé/khu vực ghế/lifecycle.
 - Test organizer khác tự bỏ qua nếu `other_organizer_access_token` trống.
   Tạo organizer thứ hai và lấy token của người đó nếu muốn kiểm tra case này.
 - Các lần chạy mới tạo dữ liệu mới và ghi đè ID test trong environment.
 
 GET/POST/PUT/DELETE của các tài nguyên đều có trong collection. Các request DELETE được
-đặt cuối ở **08 Cleanup** để không xóa dữ liệu trước các test đọc/phân quyền.
+đặt cuối ở **09 Cleanup** để không xóa dữ liệu trước các test đọc/phân quyền.
 Thứ tự xóa tuân thủ toàn vẹn khóa ngoại: section > tier > draft event > venue.
-Đặt `enable_cleanup=true` rồi chạy folder 08. Kiểm tra ID trong environment trước khi chạy;
+Đặt `enable_cleanup=true` rồi chạy folder 09. Kiểm tra ID trong environment trước khi chạy;
 đặt lại false sau đó.
 
 ## Đăng ký / tạo tài khoản
@@ -61,7 +67,7 @@ Thứ tự xóa tuân thủ toàn vẹn khóa ngoại: section > tier > draft ev
 `registrationAllowed=false`, không thể dùng Postman POST `/register` để tự đăng ký.
 Collection không thay đổi thiết lập này và không tạo endpoint giả.
 
-Folder **06 Registration** là luồng quản trị cấp tài khoản qua Keycloak Admin REST API:
+Folder **07 Registration** là luồng quản trị cấp tài khoản qua Keycloak Admin REST API:
 
 1. Điền environment local:
    - `enable_admin_registration=true`
@@ -90,7 +96,7 @@ Keycloak registration và chính sách default role customer, xác minh email.
 ## Refresh / logout
 
 - Copy refresh_token từ hộp thoại PKCE vào `organizer_refresh_token`.
-- **07 Refresh** đổi access token và lưu refresh token mới nếu có.
+- **08 Refresh** đổi access token và lưu refresh token mới nếu có.
 - Chỉ đặt `enable_logout=true` khi muốn kết thúc phiên; logout chạy sau CRUD.
 - Logout session không đảm bảo JWT access token bị từ chối ngay tại service:
   service xác thực JWT offline có thể chấp nhận tới lúc hết hạn.
@@ -109,8 +115,8 @@ Keycloak registration và chính sách default role customer, xác minh email.
 
 Collection v2.1 được tạo để import trực tiếp vào Postman Desktop.
 `python postman/build_collection.py` tái tạo collection/environment rỗng từ mẫu.
-`python postman/validate_collection.py` kiểm tra độ phủ 22 operation từ controller,
-47 request, biến tham chiếu, token/password rỗng và cú pháp JavaScript bằng Node.js.
+`python postman/validate_collection.py` kiểm tra độ phủ 26 operation từ controller,
+59 request, biến tham chiếu, token/password rỗng và cú pháp JavaScript bằng Node.js.
 CLI `postman collection lint` hiện tại báo Scanned: 0 cho JSON v2.1, nên không
 được coi là bằng chứng lint/schema thành công.
 Kiểm tra cấu trúc và script không thay thế chạy API thật; việc tạo collection

@@ -66,4 +66,24 @@ public class EventController {
         service.delete(id);
         return ResponseEntity.noContent().build();
     }
+
+    @PostMapping("/{id}/publish")
+    public EventResponse publish(@PathVariable String id) {
+        return service.publish(id);
+    }
+
+    @PutMapping("/{id}/on-sale")
+    public EventResponse openOnSale(@PathVariable String id) {
+        return service.openOnSale(id);
+    }
+
+    @PostMapping("/{id}/close")
+    public EventResponse close(@PathVariable String id) {
+        return service.close(id);
+    }
+
+    @PostMapping("/{id}/cancel")
+    public EventResponse cancel(@PathVariable String id) {
+        return service.cancel(id);
+    }
 }

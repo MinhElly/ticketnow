@@ -134,5 +134,17 @@ class EventserviceApplicationTests {
   // section tier of another event check
   var otherTier = tiers.create(other.id(), new TicketTierRequest("OTHER", BigDecimal.ONE, "VND"));
   assertThrows(ApiException.class, () -> sections.create(event.id(), new SeatSectionRequest("CROSS", otherTier.id(), 1, 10)));
+
+  // lifecycle transitions
+  assertThrows(ApiException.class, () -> events.publish(event.id())); // no tier, no section
+  var t = tiers.create(event.id(), new TicketTierRequest("E-TIER", BigDecimal.TEN, "VND"));
+  assertThrows(ApiException.class, () -> events.publish(event.id())); // no section
+  sections.create(event.id(), new SeatSectionRequest("S1", t.id(), 1, 5));
+  var published = events.publish(event.id());
+  assertEquals(EventStatus.PUBLISHED, published.status());
+  var onSale = events.openOnSale(event.id());
+  assertEquals(EventStatus.ON_SALE, onSale.status());
+  var closed = events.close(event.id());
+  assertEquals(EventStatus.CLOSED, closed.status());
  }
 }

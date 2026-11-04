@@ -112,4 +112,70 @@ public class EventService {
         tiers.flush();
         events.delete(e);
     }
+
+    @PreAuthorize("hasAnyRole('organizer', 'admin')")
+    @Transactional
+    public EventResponse publish(String id) {
+        Event e = require(id);
+        requireOwnerOrAdmin(e);
+        if (e.getStatus() != EventStatus.DRAFT) {
+            throw ApiException.conflict("Only draft events can be published (current status: " + e.getStatus() + ")");
+        }
+        var tierList = tiers.findByEventIdOrderByPriceAsc(id);
+        if (tierList.isEmpty()) {
+            throw ApiException.badRequest("Cannot publish event without ticket tiers");
+        }
+        var sectionList = sections.findByEventIdOrderByNameAsc(id);
+        if (sectionList.isEmpty()) {
+            throw ApiException.badRequest("Cannot publish event without seat sections");
+        }
+        int totalSeats = sectionList.stream().mapToInt(s -> s.getRowCount() * s.getSeatsPerRow()).sum();
+        if (totalSeats <= 0) {
+            throw ApiException.badRequest("Cannot publish event with 0 configured seats");
+        }
+        if (totalSeats > e.getVenue().getCapacity()) {
+            throw ApiException.badRequest("Configured seats (" + totalSeats + ") exceed venue capacity (" + e.getVenue().getCapacity() + ")");
+        }
+        e.setStatus(EventStatus.PUBLISHED);
+        return EventResponse.from(events.saveAndFlush(e));
+    }
+
+    @PreAuthorize("hasAnyRole('organizer', 'admin')")
+    @Transactional
+    public EventResponse openOnSale(String id) {
+        Event e = require(id);
+        requireOwnerOrAdmin(e);
+        if (e.getStatus() != EventStatus.PUBLISHED) {
+            throw ApiException.conflict("Event must be in PUBLISHED status to open on-sale (current status: " + e.getStatus() + ")");
+        }
+        e.setStatus(EventStatus.ON_SALE);
+        return EventResponse.from(events.saveAndFlush(e));
+    }
+
+    @PreAuthorize("hasAnyRole('organizer', 'admin')")
+    @Transactional
+    public EventResponse close(String id) {
+        Event e = require(id);
+        requireOwnerOrAdmin(e);
+        if (e.getStatus() != EventStatus.PUBLISHED && e.getStatus() != EventStatus.ON_SALE) {
+            throw ApiException.conflict("Only PUBLISHED or ON_SALE events can be closed (current status: " + e.getStatus() + ")");
+        }
+        e.setStatus(EventStatus.CLOSED);
+        return EventResponse.from(events.saveAndFlush(e));
+    }
+
+    @PreAuthorize("hasAnyRole('organizer', 'admin')")
+    @Transactional
+    public EventResponse cancel(String id) {
+        Event e = require(id);
+        requireOwnerOrAdmin(e);
+        if (e.getStatus() == EventStatus.CANCELLED) {
+            throw ApiException.conflict("Event is already cancelled");
+        }
+        if (e.getStatus() == EventStatus.CLOSED) {
+            throw ApiException.conflict("Cannot cancel a closed event");
+        }
+        e.setStatus(EventStatus.CANCELLED);
+        return EventResponse.from(events.saveAndFlush(e));
+    }
 }

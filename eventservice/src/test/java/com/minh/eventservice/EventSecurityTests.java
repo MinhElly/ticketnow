@@ -290,6 +290,74 @@ class EventSecurityTests {
    .andExpect(jsonPath("$.sections[0].seats[0].seatId").value("A-01-01"))
    .andExpect(jsonPath("$.sections[0].seats[9].seatId").value("A-02-05"));
  }
+ @Test void eventLifecycleTransitionsAndValidation() throws Exception {
+  Event liveEvent = event("owner", EventStatus.DRAFT, "Live Event");
+  String path = "/api/v1/events/" + liveEvent.getId();
+
+  // customer or other organizer cannot trigger transitions
+  for (String user : List.of("customer", "other")) {
+   mvc.perform(post(path + "/publish").header("Authorization", "Bearer " + user)).andExpect(status().isForbidden());
+   mvc.perform(put(path + "/on-sale").header("Authorization", "Bearer " + user)).andExpect(status().isForbidden());
+   mvc.perform(post(path + "/close").header("Authorization", "Bearer " + user)).andExpect(status().isForbidden());
+   mvc.perform(post(path + "/cancel").header("Authorization", "Bearer " + user)).andExpect(status().isForbidden());
+  }
+
+  // cannot publish without tiers
+  mvc.perform(post(path + "/publish").header("Authorization", "Bearer owner"))
+   .andExpect(status().isBadRequest());
+
+  // add tier
+  TicketTier t = new TicketTier();
+  t.setEvent(liveEvent); t.setName("Standard"); t.setPrice(BigDecimal.TEN); t.setCurrency("VND");
+  t = tiers.saveAndFlush(t);
+
+  // cannot publish without sections
+  mvc.perform(post(path + "/publish").header("Authorization", "Bearer owner"))
+   .andExpect(status().isBadRequest());
+
+  // add section
+  SeatSection s = new SeatSection();
+  s.setEvent(liveEvent); s.setTier(t); s.setName("SEC-A"); s.setRowCount(2); s.setSeatsPerRow(5);
+  sections.saveAndFlush(s);
+
+  // cannot open on-sale directly from DRAFT
+  mvc.perform(put(path + "/on-sale").header("Authorization", "Bearer owner"))
+   .andExpect(status().isConflict());
+
+  // publish successfully
+  mvc.perform(post(path + "/publish").header("Authorization", "Bearer owner"))
+   .andExpect(status().isOk())
+   .andExpect(jsonPath("$.status").value("PUBLISHED"));
+
+  // cannot publish again
+  mvc.perform(post(path + "/publish").header("Authorization", "Bearer owner"))
+   .andExpect(status().isConflict());
+
+  // open on-sale successfully
+  mvc.perform(put(path + "/on-sale").header("Authorization", "Bearer owner"))
+   .andExpect(status().isOk())
+   .andExpect(jsonPath("$.status").value("ON_SALE"));
+
+  // close event successfully
+  mvc.perform(post(path + "/close").header("Authorization", "Bearer owner"))
+   .andExpect(status().isOk())
+   .andExpect(jsonPath("$.status").value("CLOSED"));
+
+  // cannot cancel closed event
+  mvc.perform(post(path + "/cancel").header("Authorization", "Bearer owner"))
+   .andExpect(status().isConflict());
+
+  // cancel another draft event
+  Event draftToCancel = event("owner", EventStatus.DRAFT, "Cancel Me");
+  String cancelPath = "/api/v1/events/" + draftToCancel.getId();
+  mvc.perform(post(cancelPath + "/cancel").header("Authorization", "Bearer owner"))
+   .andExpect(status().isOk())
+   .andExpect(jsonPath("$.status").value("CANCELLED"));
+
+  // cannot cancel already cancelled event
+  mvc.perform(post(cancelPath + "/cancel").header("Authorization", "Bearer owner"))
+   .andExpect(status().isConflict());
+ }
  @Test void venueWritesRequireAdmin() throws Exception {
   String body = "{\"name\":\"Hall\",\"address\":\"Address\",\"city\":\"HCM\",\"capacity\":100}";
   String path = "/api/v1/venues";
