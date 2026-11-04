@@ -49,7 +49,7 @@ class EventserviceApplicationTests {
 
     @Test
     void migrationIsAppliedAndSecondRunIsNoOp() {
-        assertEquals("1", flyway.info().current().getVersion().toString());
+        assertEquals("2", flyway.info().current().getVersion().toString());
         assertEquals(0, flyway.migrate().migrationsExecuted);
     }
 
@@ -57,6 +57,8 @@ class EventserviceApplicationTests {
  @Autowired VenueService venues;
  @Autowired EventService events;
  @Autowired TicketTierService tiers;
+ @Autowired SeatSectionService sections;
+
  private EventRequest request(String venueId) {
   return new EventRequest("Concert","Demo",venueId,Instant.parse("2026-12-20T12:00:00Z"),Instant.parse("2026-12-20T15:00:00Z"));
  }
@@ -76,6 +78,8 @@ class EventserviceApplicationTests {
   mvc.perform(get("/api/v1/events/me?size=abc")).andExpect(status().isBadRequest());
   mvc.perform(get("/api/v1/events/me?page=-1")).andExpect(status().isBadRequest());
   mvc.perform(get("/api/v1/events/me?status=INVALID")).andExpect(status().isBadRequest());
+  mvc.perform(get("/api/v1/events/missing/sections")).andExpect(status().isNotFound());
+  mvc.perform(get("/api/v1/events/missing/seatmap")).andExpect(status().isNotFound());
  }
  @Test void createReadUpdateAndDelete() {
   var venue=venues.create(new VenueRequest("Theater","123 Main","HCM",100));
@@ -89,6 +93,24 @@ class EventserviceApplicationTests {
   assertEquals(1,tiers.list(event.id()).size());
   tiers.update(event.id(),tier.id(),new TicketTierRequest("VIP",new BigDecimal("600000.00"),"VND"));
   assertEquals(0,new BigDecimal("600000.00").compareTo(tiers.get(event.id(),tier.id()).price()));
+
+  var sec = sections.create(event.id(), new SeatSectionRequest("A", tier.id(), 2, 10));
+  assertEquals(1, sections.list(event.id()).size());
+  assertEquals(20, sections.get(event.id(), sec.id()).totalSeats());
+  sections.update(event.id(), sec.id(), new SeatSectionRequest("A", tier.id(), 3, 10));
+  assertEquals(30, sections.get(event.id(), sec.id()).totalSeats());
+
+  var seatMap = sections.getSeatMap(event.id());
+  assertEquals(100, seatMap.venueCapacity());
+  assertEquals(30, seatMap.totalConfiguredSeats());
+  assertEquals(1, seatMap.sections().size());
+  assertEquals("A-01-01", seatMap.sections().get(0).seats().get(0).seatId());
+
+  // cannot delete tier while in use by section
+  assertThrows(ApiException.class, () -> tiers.delete(event.id(), tier.id()));
+  sections.delete(event.id(), sec.id());
+  assertEquals(0, sections.list(event.id()).size());
+
   assertThrows(ApiException.class,()->venues.delete(venue.id()));
   assertEquals(0,events.list(0,20).totalElements());
   events.delete(event.id());
@@ -106,5 +128,11 @@ class EventserviceApplicationTests {
   var tier=tiers.create(event.id(),new TicketTierRequest("VIP",BigDecimal.ONE,"VND"));
   assertThrows(ApiException.class,()->tiers.create(event.id(),new TicketTierRequest("vip",BigDecimal.ONE,"VND")));
   assertThrows(ApiException.class,()->tiers.get(other.id(),tier.id()));
+
+  // section capacity check
+  assertThrows(ApiException.class, () -> sections.create(event.id(), new SeatSectionRequest("BIG", tier.id(), 11, 10)));
+  // section tier of another event check
+  var otherTier = tiers.create(other.id(), new TicketTierRequest("OTHER", BigDecimal.ONE, "VND"));
+  assertThrows(ApiException.class, () -> sections.create(event.id(), new SeatSectionRequest("CROSS", otherTier.id(), 1, 10)));
  }
 }

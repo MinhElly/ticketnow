@@ -5,6 +5,7 @@ import com.minh.eventservice.dto.response.TicketTierResponse;
 import com.minh.eventservice.entity.Event;
 import com.minh.eventservice.entity.TicketTier;
 import com.minh.eventservice.exception.ApiException;
+import com.minh.eventservice.repository.SeatSectionRepository;
 import com.minh.eventservice.repository.TicketTierRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -18,6 +19,7 @@ import java.util.List;
 @Transactional(readOnly = true)
 public class TicketTierService {
     private final TicketTierRepository tiers;
+    private final SeatSectionRepository sections;
     private final EventService events;
 
     public List<TicketTierResponse> list(String eventId) {
@@ -33,6 +35,7 @@ public class TicketTierService {
     private TicketTier require(String eventId, String id) {
         return tiers.findById(id).filter(t -> t.getEvent().getId().equals(eventId)).orElseThrow(() -> ApiException.notFound("Ticket tier"));
     }
+
     @PreAuthorize("hasAnyRole('organizer', 'admin')")
     @Transactional
     public TicketTierResponse create(String eventId, TicketTierRequest r) {
@@ -46,6 +49,7 @@ public class TicketTierService {
         apply(t, r);
         return TicketTierResponse.from(tiers.saveAndFlush(t));
     }
+
     @PreAuthorize("hasAnyRole('organizer', 'admin')")
     @Transactional
     public TicketTierResponse update(String eventId, String id, TicketTierRequest r) {
@@ -64,13 +68,16 @@ public class TicketTierService {
         t.setPrice(r.price());
         t.setCurrency(r.currency());
     }
+
     @PreAuthorize("hasAnyRole('organizer', 'admin')")
     @Transactional
     public void delete(String eventId, String id) {
         Event e = events.require(eventId);
         events.requireOwnerOrAdmin(e);
         events.requireDraft(e);
+        if (sections.existsByTierId(id)) {
+            throw ApiException.conflict("Cannot delete ticket tier that is in use by a seat section");
+        }
         tiers.delete(require(eventId, id));
     }
 }
-

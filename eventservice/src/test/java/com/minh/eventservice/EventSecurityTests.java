@@ -36,6 +36,7 @@ class EventSecurityTests {
  @Autowired EventRepository events;
  @Autowired VenueRepository venues;
  @Autowired TicketTierRepository tiers;
+ @Autowired SeatSectionRepository sections;
  // Mock only decoding; exercise the actual filters, role converter and services.
  @TestConfiguration(proxyBeanMethods = false)
  static class Tokens {
@@ -84,6 +85,7 @@ class EventSecurityTests {
   mvc.perform(get("/api/v1/events").header("Authorization", "Bearer invalid")).andExpect(status().isUnauthorized());
   mvc.perform(get("/api/v1/events/me")).andExpect(status().isUnauthorized());
   mvc.perform(get("/api/v1/events/me").header("Authorization", "Bearer invalid")).andExpect(status().isUnauthorized());
+  mvc.perform(get("/api/v1/events/" + draft.getId() + "/seatmap")).andExpect(status().isUnauthorized());
  }
  @Test void creationChecksRoleAndUsesSubject() throws Exception {
   mvc.perform(post("/api/v1/events").header("Authorization", "Bearer customer")
@@ -92,15 +94,15 @@ class EventSecurityTests {
    .contentType(MediaType.APPLICATION_JSON).content(body())).andExpect(status().isCreated())
    .andExpect(jsonPath("$.organizerId").value("owner"));
  }
- @Test void draftsAndTiersArePrivate() throws Exception {
+ @Test void draftsAndTiersAndSectionsArePrivate() throws Exception {
   String path = "/api/v1/events/" + draft.getId();
   for (String user : List.of("customer", "other")) {
-   for (String suffix : List.of("", "/ticket-tiers", "/ticket-tiers/" + tier.getId())) {
+   for (String suffix : List.of("", "/ticket-tiers", "/ticket-tiers/" + tier.getId(), "/sections", "/seatmap")) {
     mvc.perform(get(path + suffix).header("Authorization", "Bearer " + user)).andExpect(status().isForbidden());
    }
   }
   for (String user : List.of("owner", "admin")) {
-   for (String suffix : List.of("", "/ticket-tiers", "/ticket-tiers/" + tier.getId())) {
+   for (String suffix : List.of("", "/ticket-tiers", "/ticket-tiers/" + tier.getId(), "/sections", "/seatmap")) {
     mvc.perform(get(path + suffix).header("Authorization", "Bearer " + user)).andExpect(status().isOk());
    }
   }
@@ -112,6 +114,7 @@ class EventSecurityTests {
   for (EventStatus status : List.of(EventStatus.PUBLISHED, EventStatus.ON_SALE, EventStatus.CLOSED)) {
    Event e = event(status);
    mvc.perform(get("/api/v1/events/" + e.getId()).header("Authorization", "Bearer customer")).andExpect(status().isOk());
+   mvc.perform(get("/api/v1/events/" + e.getId() + "/seatmap").header("Authorization", "Bearer customer")).andExpect(status().isOk());
   }
   mvc.perform(get("/api/v1/events?size=2").header("Authorization", "Bearer customer"))
    .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(3))
@@ -183,7 +186,10 @@ class EventSecurityTests {
  @Test void writesRequireOwnerOrAdmin() throws Exception {
   String path = "/api/v1/events/" + draft.getId();
   String tierPath = path + "/ticket-tiers";
+  String sectionPath = path + "/sections";
   String tierBody = "{\"name\":\"Standard\",\"price\":20,\"currency\":\"VND\"}";
+  String sectionBody = "{\"name\":\"A\",\"tierId\":\"%s\",\"rowCount\":2,\"seatsPerRow\":10}".formatted(tier.getId());
+
   for (String user : List.of("other", "customer")) {
    mvc.perform(put(path).header("Authorization", "Bearer " + user).contentType(MediaType.APPLICATION_JSON).content(body()))
     .andExpect(status().isForbidden());
@@ -193,6 +199,8 @@ class EventSecurityTests {
    mvc.perform(put(tierPath + "/" + tier.getId()).header("Authorization", "Bearer " + user)
     .contentType(MediaType.APPLICATION_JSON).content(tierBody)).andExpect(status().isForbidden());
    mvc.perform(delete(tierPath + "/" + tier.getId()).header("Authorization", "Bearer " + user)).andExpect(status().isForbidden());
+   mvc.perform(post(sectionPath).header("Authorization", "Bearer " + user).contentType(MediaType.APPLICATION_JSON).content(sectionBody))
+    .andExpect(status().isForbidden());
   }
   mvc.perform(put(path).header("Authorization", "Bearer owner").contentType(MediaType.APPLICATION_JSON).content(body()))
    .andExpect(status().isOk());
@@ -200,17 +208,87 @@ class EventSecurityTests {
    .andExpect(status().isCreated());
   mvc.perform(put(tierPath + "/" + tier.getId()).header("Authorization", "Bearer owner")
    .contentType(MediaType.APPLICATION_JSON).content(tierBody.replace("Standard", "VIP"))).andExpect(status().isOk());
+
+  // owner creates section
+  var secRes = mvc.perform(post(sectionPath).header("Authorization", "Bearer owner")
+   .contentType(MediaType.APPLICATION_JSON).content(sectionBody))
+   .andExpect(status().isCreated())
+   .andExpect(jsonPath("$.name").value("A"))
+   .andExpect(jsonPath("$.totalSeats").value(20))
+   .andReturn().getResponse().getContentAsString();
+  String secId = new com.fasterxml.jackson.databind.ObjectMapper().readTree(secRes).get("id").asText();
+
+  // other cannot update or delete section
+  mvc.perform(put(sectionPath + "/" + secId).header("Authorization", "Bearer other")
+   .contentType(MediaType.APPLICATION_JSON).content(sectionBody)).andExpect(status().isForbidden());
+  mvc.perform(delete(sectionPath + "/" + secId).header("Authorization", "Bearer other")).andExpect(status().isForbidden());
+
+  // owner updates section
+  String updatedSection = "{\"name\":\"A\",\"tierId\":\"%s\",\"rowCount\":3,\"seatsPerRow\":10}".formatted(tier.getId());
+  mvc.perform(put(sectionPath + "/" + secId).header("Authorization", "Bearer owner")
+   .contentType(MediaType.APPLICATION_JSON).content(updatedSection))
+   .andExpect(status().isOk()).andExpect(jsonPath("$.totalSeats").value(30));
+
+  // cannot delete tier that is in use by section
+  mvc.perform(delete(tierPath + "/" + tier.getId()).header("Authorization", "Bearer owner"))
+   .andExpect(status().isConflict());
+
+  // owner deletes section
+  mvc.perform(delete(sectionPath + "/" + secId).header("Authorization", "Bearer owner")).andExpect(status().isNoContent());
+
+  // now tier can be deleted
   mvc.perform(delete(tierPath + "/" + tier.getId()).header("Authorization", "Bearer owner")).andExpect(status().isNoContent());
   mvc.perform(delete(path).header("Authorization", "Bearer admin")).andExpect(status().isNoContent());
  }
  @Test void publishedEventsRemainImmutableEvenForAdmin() throws Exception {
   draft.setStatus(EventStatus.PUBLISHED); events.saveAndFlush(draft);
   String path = "/api/v1/events/" + draft.getId();
+  String sectionBody = "{\"name\":\"A\",\"tierId\":\"%s\",\"rowCount\":2,\"seatsPerRow\":10}".formatted(tier.getId());
   mvc.perform(put(path).header("Authorization", "Bearer admin").contentType(MediaType.APPLICATION_JSON).content(body()))
    .andExpect(status().isConflict());
   mvc.perform(delete(path).header("Authorization", "Bearer owner")).andExpect(status().isConflict());
   mvc.perform(delete(path + "/ticket-tiers/" + tier.getId()).header("Authorization", "Bearer admin"))
    .andExpect(status().isConflict());
+  mvc.perform(post(path + "/sections").header("Authorization", "Bearer admin")
+   .contentType(MediaType.APPLICATION_JSON).content(sectionBody)).andExpect(status().isConflict());
+ }
+ @Test void sectionValidationAndSeatMapContract() throws Exception {
+  String sectionPath = "/api/v1/events/" + draft.getId() + "/sections";
+  String bodyA = "{\"name\":\"A\",\"tierId\":\"%s\",\"rowCount\":2,\"seatsPerRow\":5}".formatted(tier.getId());
+  mvc.perform(post(sectionPath).header("Authorization", "Bearer owner")
+   .contentType(MediaType.APPLICATION_JSON).content(bodyA)).andExpect(status().isCreated());
+
+  // duplicate name
+  mvc.perform(post(sectionPath).header("Authorization", "Bearer owner")
+   .contentType(MediaType.APPLICATION_JSON).content(bodyA)).andExpect(status().isConflict());
+
+  // capacity violation (venue capacity is 100, section A has 10 seats, adding 95 exceeds 100)
+  String excessBody = "{\"name\":\"B\",\"tierId\":\"%s\",\"rowCount\":10,\"seatsPerRow\":10}".formatted(tier.getId());
+  mvc.perform(post(sectionPath).header("Authorization", "Bearer owner")
+   .contentType(MediaType.APPLICATION_JSON).content(excessBody)).andExpect(status().isBadRequest());
+
+  // tier from another event
+  Event otherEvent = event("owner", EventStatus.DRAFT, "Other Event");
+  TicketTier otherTier = new TicketTier();
+  otherTier.setEvent(otherEvent); otherTier.setName("Other VIP");
+  otherTier.setPrice(BigDecimal.ONE); otherTier.setCurrency("VND");
+  otherTier = tiers.saveAndFlush(otherTier);
+
+  String crossTierBody = "{\"name\":\"C\",\"tierId\":\"%s\",\"rowCount\":2,\"seatsPerRow\":5}".formatted(otherTier.getId());
+  mvc.perform(post(sectionPath).header("Authorization", "Bearer owner")
+   .contentType(MediaType.APPLICATION_JSON).content(crossTierBody)).andExpect(status().isBadRequest());
+
+  // verify seatmap generation
+  mvc.perform(get("/api/v1/events/" + draft.getId() + "/seatmap").header("Authorization", "Bearer owner"))
+   .andExpect(status().isOk())
+   .andExpect(jsonPath("$.venueCapacity").value(100))
+   .andExpect(jsonPath("$.totalConfiguredSeats").value(10))
+   .andExpect(jsonPath("$.sections.length()").value(1))
+   .andExpect(jsonPath("$.sections[0].name").value("A"))
+   .andExpect(jsonPath("$.sections[0].tier.name").value("VIP"))
+   .andExpect(jsonPath("$.sections[0].seats.length()").value(10))
+   .andExpect(jsonPath("$.sections[0].seats[0].seatId").value("A-01-01"))
+   .andExpect(jsonPath("$.sections[0].seats[9].seatId").value("A-02-05"));
  }
  @Test void venueWritesRequireAdmin() throws Exception {
   String body = "{\"name\":\"Hall\",\"address\":\"Address\",\"city\":\"HCM\",\"capacity\":100}";

@@ -3,8 +3,10 @@ package com.minh.eventservice.controller;
 import com.minh.eventservice.dto.request.EventRequest;
 import com.minh.eventservice.dto.response.EventResponse;
 import com.minh.eventservice.dto.response.PageResponse;
+import com.minh.eventservice.dto.response.SeatMapResponse;
 import com.minh.eventservice.enums.EventStatus;
 import com.minh.eventservice.service.EventService;
+import com.minh.eventservice.service.SeatSectionService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -19,6 +21,7 @@ import java.net.URI;
 @RequiredArgsConstructor
 public class EventController {
     private final EventService service;
+    private final SeatSectionService seatSectionService;
 
     @GetMapping
     public PageResponse<EventResponse> list(
@@ -40,6 +43,11 @@ public class EventController {
     @GetMapping("/{id}")
     public EventResponse get(@PathVariable String id) {
         return service.get(id);
+    }
+
+    @GetMapping("/{id}/seatmap")
+    public SeatMapResponse getSeatMap(@PathVariable String id) {
+        return seatSectionService.getSeatMap(id);
     }
 
     @PostMapping

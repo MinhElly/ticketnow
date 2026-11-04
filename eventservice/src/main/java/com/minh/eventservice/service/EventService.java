@@ -8,6 +8,7 @@ import com.minh.eventservice.entity.Event;
 import com.minh.eventservice.enums.EventStatus;
 import com.minh.eventservice.exception.ApiException;
 import com.minh.eventservice.repository.EventRepository;
+import com.minh.eventservice.repository.SeatSectionRepository;
 import com.minh.eventservice.repository.TicketTierRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -28,6 +29,7 @@ public class EventService {
     private final EventRepository events;
     private final VenueService venues;
     private final TicketTierRepository tiers;
+    private final SeatSectionRepository sections;
     private final CurrentUser currentUser;
 
     public void requireOwnerOrAdmin(Event event){
@@ -104,6 +106,8 @@ public class EventService {
         Event e = require(id);
         requireOwnerOrAdmin(e);
         requireDraft(e);
+        sections.deleteAll(sections.findByEventIdOrderByNameAsc(id));
+        sections.flush();
         tiers.deleteAll(tiers.findByEventIdOrderByPriceAsc(id));
         tiers.flush();
         events.delete(e);

@@ -3,7 +3,7 @@
     "_postman_id": "9150422e-7c40-516f-9c2b-1b2259823eb6",
     "name": "TicketNow - Current APIs + Keycloak",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "All 16 current Event Service operations through Gateway, interactive Keycloak PKCE, security checks, refresh/logout and optional admin account provisioning. Import the companion environment and read README.md. No public self-registration API exists; registrationAllowed is false. No live operations were run when generating this file."
+    "description": "All 22 current Event Service operations through Gateway, interactive Keycloak PKCE, security checks, refresh/logout and optional admin account provisioning. Import the companion environment and read README.md. No public self-registration API exists; registrationAllowed is false. No live operations were run when generating this file."
   },
   "item": [
     {
@@ -768,7 +768,177 @@
       }
     },
     {
-      "name": "04 - Security checks",
+      "name": "04 - Seat sections & Seatmap (organizer)",
+      "description": "",
+      "item": [
+        {
+          "name": "Create seat section",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/events/{{event_id}}/sections",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"A\",\n  \"tierId\": \"{{tier_id}}\",\n  \"rowCount\": 2,\n  \"seatsPerRow\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) { pm.environment.set(\"section_id\", pm.response.json().id); }",
+                  "if (pm.response.code === 201) {",
+                  " const b = pm.response.json();",
+                  " pm.test(\"Section totalSeats calculated\", () => pm.expect(b.totalSeats).to.eql(20));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List seat sections",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/events/{{event_id}}/sections",
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  " const b = pm.response.json();",
+                  " pm.test(\"Sections array\", () => pm.expect(b).to.be.an(\"array\"));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get seat section",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/events/{{event_id}}/sections/{{section_id}}",
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Update seat section",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/events/{{event_id}}/sections/{{section_id}}",
+            "description": "",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"A\",\n  \"tierId\": \"{{tier_id}}\",\n  \"rowCount\": 3,\n  \"seatsPerRow\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  " const b = pm.response.json();",
+                  " pm.test(\"Updated totalSeats\", () => pm.expect(b.totalSeats).to.eql(30));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get event seatmap",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/events/{{event_id}}/seatmap",
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  " const b = pm.response.json();",
+                  " pm.test(\"Seatmap has sections and seats\", () => {",
+                  "  pm.expect(b.sections).to.be.an(\"array\").and.not.empty;",
+                  "  pm.expect(b.sections[0].seats).to.be.an(\"array\").and.not.empty;",
+                  "  pm.expect(b.sections[0].seats[0].seatId).to.match(/^[A-Za-z0-9_-]+-\\d{2}-\\d{2}$/);",
+                  " });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "auth": {
+        "type": "bearer",
+        "bearer": [
+          {
+            "key": "token",
+            "value": "{{organizer_access_token}}",
+            "type": "string"
+          }
+        ]
+      }
+    },
+    {
+      "name": "05 - Security checks",
       "description": "",
       "item": [
         {
@@ -1041,6 +1211,113 @@
           ]
         },
         {
+          "name": "Customer cannot create section",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/events/{{event_id}}/sections",
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customer_access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"A\",\n  \"tierId\": \"{{tier_id}}\",\n  \"rowCount\": 2,\n  \"seatsPerRow\": 10\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Customer cannot list sections",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/events/{{event_id}}/sections",
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customer_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Customer cannot read draft seatmap",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/events/{{event_id}}/seatmap",
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customer_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Customer cannot edit draft",
           "request": {
             "method": "PUT",
@@ -1173,7 +1450,7 @@
       ]
     },
     {
-      "name": "05 - Registration (optional admin provisioning)",
+      "name": "06 - Registration (optional admin provisioning)",
       "description": "Self-registration is currently DISABLED (registrationAllowed=false); there is no /api/v1/auth/register. Set enable_admin_registration=true explicitly, fill local admin credentials and new user fields, then send 01-05 in order. Newly created users log in through the PKCE helper with their own credentials.",
       "item": [
         {
@@ -1447,7 +1724,7 @@
       ]
     },
     {
-      "name": "06 - Refresh and logout (optional)",
+      "name": "07 - Refresh and logout (optional)",
       "description": "",
       "item": [
         {
@@ -1561,9 +1838,49 @@
       ]
     },
     {
-      "name": "07 - Cleanup (optional, deletes test data)",
+      "name": "08 - Cleanup (optional, deletes test data)",
       "description": "Set enable_cleanup=true, then run in order after the other tests. Deletes the resources whose IDs are in the selected environment.",
       "item": [
+        {
+          "name": "Delete seat section",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": "{{base_url}}/api/v1/events/{{event_id}}/sections/{{section_id}}",
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{organizer_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.environment.get(\"enable_cleanup\") !== \"true\") pm.execution.skipRequest();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 204\", () => pm.response.to.have.status(204));"
+                ]
+              }
+            }
+          ]
+        },
         {
           "name": "Delete ticket tier",
           "request": {
