@@ -1,0 +1,46 @@
+spring:
+  config:
+    import:
+      - "optional:file:./deploy/compose/.env[.properties]"
+      - "optional:file:../deploy/compose/.env[.properties]"
+  application:
+    name: seat-inventory
+  datasource:
+    url: ${INVENTORY_DB_URL:jdbc:mariadb://${DB_HOST:localhost}:${DB_PORT:3307}/${INVENTORY_DB_NAME:ticketnow_inventory}?createDatabaseIfNotExist=true}
+    username: ${INVENTORY_DB_USERNAME:${DB_ROOT_USERNAME:root}}
+    password: ${INVENTORY_DB_PASSWORD:${DB_ROOT_PASSWORD:${DB_PASSWORD}}}
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+    clean-disabled: true
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          time_zone: UTC
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      timeout: 2000ms
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8180/realms/ticketnow
+          audiences:
+            - ticketnow-api
+
+server:
+  port: 8083
+
+seat:
+  lock:
+    strategy: ${SEAT_LOCK_STRATEGY:redis}
+    default-ttl-seconds: 600

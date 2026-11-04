@@ -1,4 +1,3 @@
-
 spring:
   application:
     name: api-gateway
@@ -7,6 +6,10 @@ spring:
       server:
         webflux:
           routes:
+            - id: seat-inventory-service
+              uri: ${SEAT_INVENTORY_URL:http://localhost:8083}
+              predicates:
+                - Path=/api/v1/events/*/seats,/api/v1/events/*/seats/**
             - id: event-service
               uri: ${EVENT_SERVICE_URL:http://localhost:8081}
               predicates:
