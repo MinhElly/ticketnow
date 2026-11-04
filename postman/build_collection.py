@@ -53,6 +53,22 @@ folder('02 - Events (organizer)',[
  pm.test("Created as DRAFT", () => pm.expect(b.status).to.eql("DRAFT"));
  pm.test("Organizer is JWT subject", () => pm.expect(b.organizerId).to.eql(pm.environment.get("organizer_sub")));
 }'''),
+ req('List own events','GET',base+'/events/me?page=0&size=20&status=DRAFT',test='''if (pm.response.code === 200) {
+ const b = pm.response.json();
+ pm.test("Page contract", () => {
+  pm.expect(b.content).to.be.an("array");
+  pm.expect(b.totalElements).to.be.a("number");
+ });
+ pm.test("Events belong to current organizer", () => {
+  const orgSub = pm.environment.get("organizer_sub");
+  if (orgSub) {
+   b.content.forEach(e => pm.expect(e.organizerId).to.eql(orgSub));
+  }
+ });
+ pm.test("Filtered by DRAFT status", () => {
+  b.content.forEach(e => pm.expect(e.status).to.eql("DRAFT"));
+ });
+}'''),
  req('List public events','GET',base+'/events?page=0&size=20',test='''if(pm.response.code === 200) pm.test("No private events in list", () => {
  pm.response.json().content.forEach(e => pm.expect(["PUBLISHED","ON_SALE","CLOSED"]).to.include(e.status));
 });'''),
@@ -70,6 +86,7 @@ folder('04 - Security checks',[
  req('Invalid token returns 401','GET',base+'/events',401,auth={'type':'bearer','bearer':[{'key':'token','value':'invalid-token','type':'string'}]}),
  req('Customer cannot create venue','POST',base+'/venues',403,auth=bearer('customer_access_token'),body=venue),
  req('Customer cannot create event','POST',base+'/events',403,auth=bearer('customer_access_token'),body=eventbody),
+ req('Customer cannot list own events','GET',base+'/events/me',403,auth=bearer('customer_access_token')),
  req('Customer cannot read draft','GET',base+'/events/{{event_id}}',403,auth=bearer('customer_access_token')),
  req('Customer cannot list private tiers','GET',base+'/events/{{event_id}}/ticket-tiers',403,auth=bearer('customer_access_token')),
  req('Customer cannot read private tier','GET',base+'/events/{{event_id}}/ticket-tiers/{{tier_id}}',403,auth=bearer('customer_access_token')),
@@ -124,10 +141,10 @@ for f in folders:
   if len(pres) > 1:
    joined = '\n'.join('\n'.join(e['script']['exec']) for e in pres)
    i['event'] = [event('prerequest', joined)] + [e for e in i['event'] if e['listen'] != 'prerequest']
-collection={'info':{'_postman_id':str(uuid.uuid5(uuid.NAMESPACE_URL, 'ticketnow-postman-collection')),'name':'TicketNow - Current APIs + Keycloak','schema':'https://schema.getpostman.com/json/collection/v2.1.0/collection.json','description':'All 15 current Event Service operations through Gateway, interactive Keycloak PKCE, security checks, refresh/logout and optional admin account provisioning. Import the companion environment and read README.md. No public self-registration API exists; registrationAllowed is false. No live operations were run when generating this file.'},'item':folders}
+collection={'info':{'_postman_id':str(uuid.uuid5(uuid.NAMESPACE_URL, 'ticketnow-postman-collection')),'name':'TicketNow - Current APIs + Keycloak','schema':'https://schema.getpostman.com/json/collection/v2.1.0/collection.json','description':'All 16 current Event Service operations through Gateway, interactive Keycloak PKCE, security checks, refresh/logout and optional admin account provisioning. Import the companion environment and read README.md. No public self-registration API exists; registrationAllowed is false. No live operations were run when generating this file.'},'item':folders}
 env={'base_url':'http://localhost:8080','keycloak_url':'http://localhost:8180','realm':'ticketnow','client_id':'ticketnow-postman','callback_url':'https://oauth.pstmn.io/v1/callback','starts_at':'2026-12-20T12:00:00Z','ends_at':'2026-12-20T15:00:00Z','venue_id':'','event_id':'','tier_id':'','admin_access_token':'','organizer_access_token':'','customer_access_token':'','other_organizer_access_token':'','admin_sub':'','organizer_sub':'','customer_sub':'','organizer_refresh_token':'','enable_admin_registration':'false','keycloak_admin_username':'','keycloak_admin_password':'','keycloak_admin_access_token':'','new_username':'','new_email':'','new_user_password':'','new_user_id':'','customer_role_id':'','enable_cleanup':'false','enable_logout':'false'}
 secrets={k for k in env if 'token' in k or 'password' in k}
 environment={'id':str(uuid.uuid5(uuid.NAMESPACE_URL, 'ticketnow-postman-local-environment')),'name':'TicketNow - Local','values':[{'key':k,'value':v,'enabled':True,'type':'secret' if k in secrets else 'default'} for k,v in env.items()],'_postman_variable_scope':'environment'}
 (out/'TicketNow.postman_collection.json').write_text(json.dumps(collection,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
 (out/'TicketNow.local.postman_environment.json').write_text(json.dumps(environment,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
-print('Created collection:',sum(len(f['item']) for f in folders),'requests; 15 business operations covered')
+print('Created collection:',sum(len(f['item']) for f in folders),'requests; 16 business operations covered')

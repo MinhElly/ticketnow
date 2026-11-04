@@ -11,6 +11,9 @@ import java.util.Collection;
 public interface EventRepository extends JpaRepository<Event, String> {
     boolean existsByVenueId(String venueId);
 
-    Page<Event> findByStatusIn (Collection<EventStatus> statuses, Pageable pageable);
-}
+    Page<Event> findByStatusIn(Collection<EventStatus> statuses, Pageable pageable);
 
+    Page<Event> findByOrganizerId(String organizerId, Pageable pageable);
+
+    Page<Event> findByOrganizerIdAndStatus(String organizerId, EventStatus status, Pageable pageable);
+}

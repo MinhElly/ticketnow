@@ -10,6 +10,7 @@ import com.minh.eventservice.exception.ApiException;
 import com.minh.eventservice.repository.EventRepository;
 import com.minh.eventservice.repository.TicketTierRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
@@ -61,6 +62,16 @@ public class EventService {
         return PageResponse.from(events.findByStatusIn(statuses, pageable).map(EventResponse::from));
     }
 
+    @PreAuthorize("hasAnyRole('organizer', 'admin')")
+    public PageResponse<EventResponse> listMine(int page, int size, EventStatus status) {
+        var pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt").and(Sort.by("id")));
+        String organizerId = currentUser.subject();
+        Page<Event> result = (status != null)
+                ? events.findByOrganizerIdAndStatus(organizerId, status, pageable)
+                : events.findByOrganizerId(organizerId, pageable);
+        return PageResponse.from(result.map(EventResponse::from));
+    }
+
     private void apply(Event e, EventRequest r) {
         if (!r.endsAt().isAfter(r.startsAt()))
             throw new ApiException(HttpStatus.BAD_REQUEST, "endsAt must be after startsAt");
@@ -98,4 +109,3 @@ public class EventService {
         events.delete(e);
     }
 }
-

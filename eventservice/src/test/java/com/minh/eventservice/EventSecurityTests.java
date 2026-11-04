@@ -65,7 +65,10 @@ class EventSecurityTests {
   tier = tiers.saveAndFlush(tier);
  }
  Event event(EventStatus status) {
-  Event e = new Event(); e.setTitle("Concert"); e.setVenue(venue); e.setOrganizerId("owner");
+  return event("owner", status, "Concert");
+ }
+ Event event(String organizerId, EventStatus status, String title) {
+  Event e = new Event(); e.setTitle(title); e.setVenue(venue); e.setOrganizerId(organizerId);
   e.setStartsAt(Instant.parse("2026-12-20T12:00:00Z"));
   e.setEndsAt(Instant.parse("2026-12-20T15:00:00Z")); e.setStatus(status);
   return events.saveAndFlush(e);
@@ -79,6 +82,8 @@ class EventSecurityTests {
  @Test void missingAndInvalidTokensAreUnauthorized() throws Exception {
   mvc.perform(get("/api/v1/events")).andExpect(status().isUnauthorized());
   mvc.perform(get("/api/v1/events").header("Authorization", "Bearer invalid")).andExpect(status().isUnauthorized());
+  mvc.perform(get("/api/v1/events/me")).andExpect(status().isUnauthorized());
+  mvc.perform(get("/api/v1/events/me").header("Authorization", "Bearer invalid")).andExpect(status().isUnauthorized());
  }
  @Test void creationChecksRoleAndUsesSubject() throws Exception {
   mvc.perform(post("/api/v1/events").header("Authorization", "Bearer customer")
@@ -111,6 +116,69 @@ class EventSecurityTests {
   mvc.perform(get("/api/v1/events?size=2").header("Authorization", "Bearer customer"))
    .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(3))
    .andExpect(jsonPath("$.content.length()").value(2));
+ }
+ @Test void listMineEnforcesOrganizerScopeStatusAndPagination() throws Exception {
+  event("owner", EventStatus.PUBLISHED, "Owner Published");
+  event("other", EventStatus.DRAFT, "Other Draft");
+  event("other", EventStatus.PUBLISHED, "Other Published");
+  event("admin", EventStatus.DRAFT, "Admin Draft");
+
+  mvc.perform(get("/api/v1/events/me").header("Authorization", "Bearer customer"))
+   .andExpect(status().isForbidden());
+
+  // owner has: draft (from setup), Owner Published (total: 2)
+  mvc.perform(get("/api/v1/events/me").header("Authorization", "Bearer owner"))
+   .andExpect(status().isOk())
+   .andExpect(jsonPath("$.totalElements").value(2))
+   .andExpect(jsonPath("$.content[0].organizerId").value("owner"))
+   .andExpect(jsonPath("$.content[1].organizerId").value("owner"));
+
+  // owner filters by status DRAFT
+  mvc.perform(get("/api/v1/events/me?status=DRAFT").header("Authorization", "Bearer owner"))
+   .andExpect(status().isOk())
+   .andExpect(jsonPath("$.totalElements").value(1))
+   .andExpect(jsonPath("$.content[0].id").value(draft.getId()))
+   .andExpect(jsonPath("$.content[0].status").value("DRAFT"));
+
+  // owner filters by status PUBLISHED
+  mvc.perform(get("/api/v1/events/me?status=PUBLISHED").header("Authorization", "Bearer owner"))
+   .andExpect(status().isOk())
+   .andExpect(jsonPath("$.totalElements").value(1))
+   .andExpect(jsonPath("$.content[0].status").value("PUBLISHED"))
+   .andExpect(jsonPath("$.content[0].title").value("Owner Published"));
+
+  // pagination check for owner
+  mvc.perform(get("/api/v1/events/me?size=1&page=0").header("Authorization", "Bearer owner"))
+   .andExpect(status().isOk())
+   .andExpect(jsonPath("$.totalElements").value(2))
+   .andExpect(jsonPath("$.content.length()").value(1));
+
+  // second organizer: other has 2 events, none belonging to owner
+  mvc.perform(get("/api/v1/events/me").header("Authorization", "Bearer other"))
+   .andExpect(status().isOk())
+   .andExpect(jsonPath("$.totalElements").value(2))
+   .andExpect(jsonPath("$.content[0].organizerId").value("other"))
+   .andExpect(jsonPath("$.content[1].organizerId").value("other"));
+
+  // other filters by DRAFT
+  mvc.perform(get("/api/v1/events/me?status=DRAFT").header("Authorization", "Bearer other"))
+   .andExpect(status().isOk())
+   .andExpect(jsonPath("$.totalElements").value(1))
+   .andExpect(jsonPath("$.content[0].title").value("Other Draft"))
+   .andExpect(jsonPath("$.content[0].status").value("DRAFT"));
+
+  // other filters by CLOSED (none exists)
+  mvc.perform(get("/api/v1/events/me?status=CLOSED").header("Authorization", "Bearer other"))
+   .andExpect(status().isOk())
+   .andExpect(jsonPath("$.totalElements").value(0))
+   .andExpect(jsonPath("$.content.length()").value(0));
+
+  // admin only sees events owned by admin (1 event), never owner's or other's
+  mvc.perform(get("/api/v1/events/me").header("Authorization", "Bearer admin"))
+   .andExpect(status().isOk())
+   .andExpect(jsonPath("$.totalElements").value(1))
+   .andExpect(jsonPath("$.content[0].organizerId").value("admin"))
+   .andExpect(jsonPath("$.content[0].title").value("Admin Draft"));
  }
  @Test void writesRequireOwnerOrAdmin() throws Exception {
   String path = "/api/v1/events/" + draft.getId();

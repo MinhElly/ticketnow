@@ -3,6 +3,7 @@ package com.minh.eventservice.controller;
 import com.minh.eventservice.dto.request.EventRequest;
 import com.minh.eventservice.dto.response.EventResponse;
 import com.minh.eventservice.dto.response.PageResponse;
+import com.minh.eventservice.enums.EventStatus;
 import com.minh.eventservice.service.EventService;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
@@ -20,8 +21,20 @@ public class EventController {
     private final EventService service;
 
     @GetMapping
-    public PageResponse<EventResponse> list(@RequestParam(defaultValue = "0") @Min(0) int page, @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size) {
+    public PageResponse<EventResponse> list(
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size
+    ) {
         return service.list(page, size);
+    }
+
+    @GetMapping("/me")
+    public PageResponse<EventResponse> listMine(
+            @RequestParam(defaultValue = "0") @Min(0) int page,
+            @RequestParam(defaultValue = "20") @Min(1) @Max(100) int size,
+            @RequestParam(required = false) EventStatus status
+    ) {
+        return service.listMine(page, size, status);
     }
 
     @GetMapping("/{id}")
@@ -46,4 +59,3 @@ public class EventController {
         return ResponseEntity.noContent().build();
     }
 }
-

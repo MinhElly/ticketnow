@@ -8,7 +8,7 @@ collection = json.loads((root / 'TicketNow.postman_collection.json').read_text(e
 environment = json.loads((root / 'TicketNow.local.postman_environment.json').read_text(encoding='utf-8'))
 variables = {v['key']: v['value'] for v in environment['values']}
 requests = [i for folder in collection['item'] for i in folder['item']]
-assert len(requests) == 36
+assert len(requests) == 38
 assert len({i['name'] for i in requests}) == len(requests)
 assert all(not value for key, value in variables.items() if 'password' in key or 'token' in key)
 refs = set(re.findall(r'\{\{([a-z_]+)\}\}', json.dumps(collection)))
@@ -35,5 +35,5 @@ for item in requests:
         result = subprocess.run(['node', '--check'], input=code, text=True, capture_output=True)
         assert result.returncode == 0, (item['name'], result.stderr)
 assert expected == actual, {'missing': list(expected-actual), 'extra': list(actual-expected)}
-assert len(expected) == 15
+assert len(expected) == 16
 print(f'PASS: {len(requests)} requests; all {len(expected)} controller operations covered; variables resolved; scripts parse; no saved tokens/passwords.')

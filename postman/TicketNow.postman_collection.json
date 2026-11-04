@@ -3,7 +3,7 @@
     "_postman_id": "9150422e-7c40-516f-9c2b-1b2259823eb6",
     "name": "TicketNow - Current APIs + Keycloak",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "All 15 current Event Service operations through Gateway, interactive Keycloak PKCE, security checks, refresh/logout and optional admin account provisioning. Import the companion environment and read README.md. No public self-registration API exists; registrationAllowed is false. No live operations were run when generating this file."
+    "description": "All 16 current Event Service operations through Gateway, interactive Keycloak PKCE, security checks, refresh/logout and optional admin account provisioning. Import the companion environment and read README.md. No public self-registration API exists; registrationAllowed is false. No live operations were run when generating this file."
   },
   "item": [
     {
@@ -510,6 +510,43 @@
           ]
         },
         {
+          "name": "List own events",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/events/me?page=0&size=20&status=DRAFT",
+            "description": ""
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  " const b = pm.response.json();",
+                  " pm.test(\"Page contract\", () => {",
+                  "  pm.expect(b.content).to.be.an(\"array\");",
+                  "  pm.expect(b.totalElements).to.be.a(\"number\");",
+                  " });",
+                  " pm.test(\"Events belong to current organizer\", () => {",
+                  "  const orgSub = pm.environment.get(\"organizer_sub\");",
+                  "  if (orgSub) {",
+                  "   b.content.forEach(e => pm.expect(e.organizerId).to.eql(orgSub));",
+                  "  }",
+                  " });",
+                  " pm.test(\"Filtered by DRAFT status\", () => {",
+                  "  b.content.forEach(e => pm.expect(e.status).to.eql(\"DRAFT\"));",
+                  " });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "List public events",
           "request": {
             "method": "GET",
@@ -864,6 +901,37 @@
                   "language": "json"
                 }
               }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Customer cannot list own events",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/events/me",
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customer_access_token}}",
+                  "type": "string"
+                }
+              ]
             }
           },
           "response": [],

@@ -1,6 +1,7 @@
 package com.minh.eventservice;
 
 import com.minh.eventservice.dto.request.*;
+import com.minh.eventservice.enums.EventStatus;
 import com.minh.eventservice.service.*;
 import com.minh.eventservice.exception.ApiException;
 import org.junit.jupiter.api.Test;
@@ -71,12 +72,19 @@ class EventserviceApplicationTests {
   mvc.perform(get("/api/v1/events/missing")).andExpect(status().isNotFound());
   mvc.perform(get("/api/v1/events?size=101")).andExpect(status().isBadRequest());
   mvc.perform(get("/api/v1/events?size=abc")).andExpect(status().isBadRequest());
+  mvc.perform(get("/api/v1/events/me?size=101")).andExpect(status().isBadRequest());
+  mvc.perform(get("/api/v1/events/me?size=abc")).andExpect(status().isBadRequest());
+  mvc.perform(get("/api/v1/events/me?page=-1")).andExpect(status().isBadRequest());
+  mvc.perform(get("/api/v1/events/me?status=INVALID")).andExpect(status().isBadRequest());
  }
  @Test void createReadUpdateAndDelete() {
   var venue=venues.create(new VenueRequest("Theater","123 Main","HCM",100));
   var event=events.create(request(venue.id()));
   assertEquals("DRAFT",event.status().name());
   assertEquals(venue.id(),events.get(event.id()).venueId());
+  assertEquals(1, events.listMine(0, 20, null).totalElements());
+  assertEquals(1, events.listMine(0, 20, EventStatus.DRAFT).totalElements());
+  assertEquals(0, events.listMine(0, 20, EventStatus.PUBLISHED).totalElements());
   var tier=tiers.create(event.id(),new TicketTierRequest("VIP",new BigDecimal("500000.00"),"VND"));
   assertEquals(1,tiers.list(event.id()).size());
   tiers.update(event.id(),tier.id(),new TicketTierRequest("VIP",new BigDecimal("600000.00"),"VND"));
@@ -84,6 +92,7 @@ class EventserviceApplicationTests {
   assertThrows(ApiException.class,()->venues.delete(venue.id()));
   assertEquals(0,events.list(0,20).totalElements());
   events.delete(event.id());
+  assertEquals(0, events.listMine(0, 20, null).totalElements());
   assertThrows(ApiException.class,()->events.get(event.id()));
   venues.delete(venue.id());
  }

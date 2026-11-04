@@ -28,7 +28,7 @@ Không dùng ID token thay cho access token. Giữ token/password ở giá trị
 không sync hoặc export các giá trị đã điền vào Git. File environment đi kèm
 chỉ chứa trường bí mật rỗng; type secret chỉ che UI, không mã hóa file export.
 
-## Chạy 15 endpoint nghiệp vụ
+## Chạy 16 endpoint nghiệp vụ
 
 Chạy theo thứ tự folder **01 Venues > 02 Events > 03 Ticket tiers > 04 Security**.
 Có thể chọn riêng bốn folder này trong Collection Runner sau khi đã lấy token.
@@ -37,6 +37,8 @@ Không chạy toàn bộ collection từ đầu trong Runner: PKCE cần đăng 
 - Venues dùng token admin; Events/Tiers dùng token organizer.
 - POST thành công tự lưu `venue_id`, `event_id`, `tier_id` trong environment.
 - PUT dùng body mẫu đầy đủ; danh sách hỗ trợ page/size.
+- GET `/events/me` trả danh sách sự kiện do chính organizer đang đăng nhập tạo,
+  hỗ trợ phân trang và lọc theo `status` (ví dụ `DRAFT`).
 - Event tạo ra ở DRAFT, chỉ chủ sở hữu/admin đọc được; không xuất hiện trong
   danh sách chung. `organizerId` phải trùng `organizer_sub` đã lưu qua UserInfo.
 - Security kiểm tra 401, 403, phân trang sai 400 và bảo vệ bản nháp/hạng vé.
@@ -103,8 +105,8 @@ Keycloak registration và chính sách default role customer, xác minh email.
 
 Collection v2.1 được tạo để import trực tiếp vào Postman Desktop.
 `python postman/build_collection.py` tái tạo collection/environment rỗng từ mẫu.
-`python postman/validate_collection.py` kiểm tra độ phủ 15 operation từ controller,
-36 request, biến tham chiếu, token/password rỗng và cú pháp JavaScript bằng Node.js.
+`python postman/validate_collection.py` kiểm tra độ phủ 16 operation từ controller,
+38 request, biến tham chiếu, token/password rỗng và cú pháp JavaScript bằng Node.js.
 CLI `postman collection lint` hiện tại báo Scanned: 0 cho JSON v2.1, nên không
 được coi là bằng chứng lint/schema thành công.
 Kiểm tra cấu trúc và script không thay thế chạy API thật; việc tạo collection
