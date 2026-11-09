@@ -4,6 +4,8 @@ import type { Event } from '@/types/event'
 export const mediaOf = (value: any) => {
   if (!value) return null
   if (typeof value === 'object' && value.url) return value as Media
+  if (typeof value === 'object' && value.imageUrl)
+    return { url: value.imageUrl, alt: 'Ảnh sự kiện' } as any
   if (
     typeof value === 'string' &&
     (value.startsWith('http://') ||

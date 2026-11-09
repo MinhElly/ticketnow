@@ -24,3 +24,7 @@ logs/
 # beside it.
 /.plugins/
 /.opencode-skills/
+
+# Uploaded media assets
+public/uploads/*
+!public/uploads/.gitkeep

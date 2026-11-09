@@ -123,6 +123,7 @@ export const Events: CollectionConfig = {
     { name: 'subtitle', type: 'text' },
     { name: 'description', type: 'textarea', required: true },
     { name: 'image', type: 'upload', relationTo: 'media' },
+    { name: 'imageUrl', type: 'text' },
     {
       name: 'category',
       type: 'select',

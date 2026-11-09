@@ -348,6 +348,7 @@ export async function POST(request: Request) {
       onSaleAt: onSaleAt?.toISOString() ?? null,
       tiers,
       ...(mediaId ? { image: mediaId } : {}),
+      ...(imageUrl ? { imageUrl } : {}),
       waitingRoom: body.waitingRoom === true,
       ...(seatLayout ? { seatLayout } : {}),
     }
