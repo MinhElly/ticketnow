@@ -4,6 +4,7 @@ import { holdSeats, changeBooking } from '@/lib/booking-service'
 import { fetchGateway } from '@/lib/backend-api'
 import { getPayloadClient } from '@/lib/payload'
 import type { BackendSeatMap } from '@/lib/event-adapter'
+import { normalizeToBackendSeatId, normalizeToFrontendSeatCode } from '@/lib/seat-normalization'
 
 export async function POST(request: Request) {
   try {
@@ -27,7 +28,7 @@ export async function POST(request: Request) {
         body.seats.length < 1 ||
         body.seats.length > 6 ||
         body.seats.some(
-          (s: unknown) => typeof s !== 'string' || !/^[A-Z]{1,3}-\d{1,2}-\d{1,2}$/.test(s),
+          (s: unknown) => typeof s !== 'string' || !/^[A-Z0-9-]{3,30}$/.test(s),
         ) ||
         typeof body.key !== 'string' ||
         !/^[a-zA-Z0-9-]{8,80}$/.test(body.key)
@@ -37,75 +38,123 @@ export async function POST(request: Request) {
 
       let backendBookingId: string | null = null
 
-      // Try holding via booking-service on API Gateway
-      try {
-        // Query seatmap to resolve tierId and price for each seat
-        const seatmap = await fetchGateway<BackendSeatMap>(`/api/v1/events/${body.event}/seatmap`).catch(
-          () => null,
-        )
+      // Query seatmap to resolve tierId, price, and exact backend seat IDs
+      const seatmap = await fetchGateway<BackendSeatMap>(`/api/v1/events/${body.event}/seatmap`).catch(
+        () => null,
+      )
 
-        const seatSelections = body.seats.map((seatCode: string) => {
-          let tierId: string | undefined
-          let price = 0
+      if (seatmap?.sections) {
+        // Collect all backend seat IDs and map frontend seat codes
+        const allBackendSeatIds: string[] = []
+        const seatDetailMap = new Map<string, { tierId: string; price: number; backendSeatId: string }>()
 
-          if (seatmap?.sections) {
-            for (const sec of seatmap.sections) {
-              const match = sec.seats?.some((s) => s.seatId === seatCode) || seatCode.startsWith(sec.name)
-              if (match) {
-                tierId = sec.tier.id
-                price = Number(sec.tier.price) || 0
-                break
+        for (const sec of seatmap.sections) {
+          if (Array.isArray(sec.seats)) {
+            for (const s of sec.seats) {
+              allBackendSeatIds.push(s.seatId)
+              const detail = {
+                tierId: sec.tier.id,
+                price: Number(sec.tier.price) || 0,
+                backendSeatId: s.seatId,
               }
+              // Map both backend ID (e.g. "A-01-01") and frontend code (e.g. "A-1-1")
+              seatDetailMap.set(s.seatId, detail)
+              const frontendCode = normalizeToFrontendSeatCode(s.seatId)
+              seatDetailMap.set(frontendCode, detail)
             }
           }
+        }
+
+        const seatSelections = body.seats.map((seatCode: string) => {
+          const detail = seatDetailMap.get(seatCode)
+          const backendSeatId = detail?.backendSeatId || normalizeToBackendSeatId(seatCode, allBackendSeatIds)
+          const tierId = detail?.tierId || (seatmap.sections[0]?.tier?.id)
+          const price = detail?.price ?? (Number(seatmap.sections[0]?.tier?.price) || 0)
 
           return {
-            seatId: seatCode,
+            seatId: backendSeatId,
             tierId,
             price,
           }
         })
 
-        const backendBooking = await fetchGateway<any>('/api/v1/bookings', {
-          method: 'POST',
-          headers: { 'Idempotency-Key': body.key },
-          body: JSON.stringify({
-            eventId: body.event,
-            seats: seatSelections,
-          }),
-        })
-
-        if (backendBooking?.id) {
-          backendBookingId = backendBooking.id
-        }
-      } catch (err) {
-        const message = err instanceof Error ? err.message : ''
-        if (
-          message.includes('unavailable') ||
-          message.includes('already held') ||
-          message.includes('locked') ||
-          message.includes('Conflict')
-        ) {
-          throw new Error('Ghế vừa được người khác giữ. Vui lòng chọn ghế khác.')
-        }
-        // Fallback to seat-inventory direct hold if booking-service threw non-conflict
         try {
-          await fetchGateway(`/api/v1/events/${body.event}/seats/hold`, {
+          const backendBooking = await fetchGateway<any>('/api/v1/bookings', {
             method: 'POST',
+            headers: { 'Idempotency-Key': body.key },
             body: JSON.stringify({
-              seatIds: body.seats,
-              bookingId: body.key,
-              ttlSeconds: 600,
+              eventId: body.event,
+              seats: seatSelections,
             }),
           })
-        } catch {
-          // Non-blocking fallback
+
+          if (backendBooking?.id) {
+            backendBookingId = backendBooking.id
+          }
+        } catch (err: any) {
+          const message = err instanceof Error ? err.message : String(err)
+
+          // If error is genuinely because another user is currently holding the seat:
+          if (
+            message.includes('already held') ||
+            message.includes('locked by another') ||
+            (message.includes('unavailable') && !message.includes('do not exist in inventory'))
+          ) {
+            throw new Error('Ghế vừa được người khác giữ. Vui lòng chọn ghế khác.')
+          }
+
+          // If seats need initialization in seat-inventory, auto-initialize and retry once:
+          if (message.includes('do not exist in inventory') && seatmap.sections) {
+            try {
+              const allSeatsToInit = seatmap.sections.flatMap((sec) =>
+                (sec.seats || []).map((s) => ({
+                  seatId: s.seatId,
+                  tierId: sec.tier.id,
+                })),
+              )
+              if (allSeatsToInit.length > 0) {
+                await fetchGateway(`/api/v1/events/${body.event}/seats/initialize`, {
+                  method: 'POST',
+                  body: JSON.stringify({ seats: allSeatsToInit }),
+                })
+
+                // Retry booking after initializing seats
+                const retriedBooking = await fetchGateway<any>('/api/v1/bookings', {
+                  method: 'POST',
+                  headers: { 'Idempotency-Key': body.key },
+                  body: JSON.stringify({
+                    eventId: body.event,
+                    seats: seatSelections,
+                  }),
+                })
+
+                if (retriedBooking?.id) {
+                  backendBookingId = retriedBooking.id
+                }
+              }
+            } catch (initErr: any) {
+              const initMsg = initErr instanceof Error ? initErr.message : String(initErr)
+              if (initMsg.includes('already held') || initMsg.includes('unavailable')) {
+                throw new Error('Ghế vừa được người khác giữ. Vui lòng chọn ghế khác.')
+              }
+            }
+          }
         }
       }
 
-      // Sync/fallback to local PayloadCMS booking
-      const booking = await holdSeats(user, body.event, body.seats, body.key)
-      return Response.json({ ok: true, id: backendBookingId || booking.id })
+      // If backend booking succeeded, try syncing with local PayloadCMS non-blockingly
+      if (backendBookingId) {
+        try {
+          await holdSeats(user, body.event, body.seats, body.key, true)
+        } catch {
+          // Non-blocking sync for PayloadCMS
+        }
+        return Response.json({ ok: true, id: backendBookingId })
+      }
+
+      // If not on backend (e.g. local CMS event or Gateway offline), use local PayloadCMS
+      const booking = await holdSeats(user, body.event, body.seats, body.key, true)
+      return Response.json({ ok: true, id: booking.id })
     }
 
     // 2. ACTION: CONFIRM / PAY / CANCEL / REFUND
@@ -119,7 +168,6 @@ export async function POST(request: Request) {
 
     // Handle PAY action
     if (body.action === 'pay') {
-      // 1. Try processing payment via payment-service and booking-service
       try {
         let amount = 0
         let eventId: string | null = null

@@ -4,16 +4,23 @@ import { getPayloadClient } from '@/lib/payload'
 import type { Booking, User } from '@/payload-types'
 
 const context = { ticketWorkflow: true }
-export async function expireOwnBookings(user: User) {
+export async function expireOwnBookings(user: User, cancelAllHeld = false) {
   try {
     const payload = await getPayloadClient()
+    const whereCondition = cancelAllHeld
+      ? { and: [{ owner: { equals: user.id } }, { status: { equals: 'held' } }] }
+      : {
+          and: [
+            { owner: { equals: user.id } },
+            { status: { equals: 'held' } },
+            { expiresAt: { less_than: new Date().toISOString() } },
+          ],
+        }
     const expired = await payload.find({
       collection: 'bookings',
-      where: {
-        and: [{ status: { equals: 'held' } }, { expiresAt: { less_than: new Date().toISOString() } }],
-      },
+      where: whereCondition,
       user,
-      overrideAccess: false,
+      overrideAccess: true,
       depth: 0,
       limit: 100,
     })
@@ -24,23 +31,29 @@ export async function expireOwnBookings(user: User) {
         data: { status: 'expired', activeKey: null },
         context,
         user,
-        overrideAccess: false,
+        overrideAccess: true,
       })
       await payload.delete({
         collection: 'seat-claims',
         where: { booking: { equals: booking.id } },
         context,
         user,
-        overrideAccess: false,
+        overrideAccess: true,
       })
     }
   } catch {
     // Non-blocking
   }
 }
-export async function holdSeats(user: User, event: string, seats: string[], key: string) {
+export async function holdSeats(
+  user: User,
+  event: string,
+  seats: string[],
+  key: string,
+  resetPrevious = true,
+) {
   const payload = await getPayloadClient()
-  await expireOwnBookings(user)
+  await expireOwnBookings(user, resetPrevious)
   const idempotencyKey = `${user.id}:${key}`
   const previous = await payload.find({
     collection: 'bookings',

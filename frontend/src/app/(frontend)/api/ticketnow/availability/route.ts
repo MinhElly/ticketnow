@@ -1,6 +1,7 @@
 import { fetchGateway } from '@/lib/backend-api'
 import { getPayloadClient } from '@/lib/payload'
 import { failure } from '@/lib/http'
+import { normalizeToFrontendSeatCode } from '@/lib/seat-normalization'
 
 interface SeatResponse {
   seatId: string
@@ -22,13 +23,19 @@ export async function GET(request: Request) {
       })
 
       if (Array.isArray(seats)) {
-        const claims = seats
-          .filter((s) => s.status === 'HELD' || s.status === 'CONFIRMED')
-          .map((s) => ({
-            code: s.seatId,
-            status: s.status === 'CONFIRMED' ? 'sold' : 'held',
-          }))
+        const claimsMap = new Map<string, string>()
 
+        for (const s of seats) {
+          if (s.status === 'HELD' || s.status === 'CONFIRMED') {
+            const status = s.status === 'CONFIRMED' ? 'sold' : 'held'
+            // Include both original backend seatId ("A-01-01") and frontend code ("A-1-1")
+            claimsMap.set(s.seatId, status)
+            const frontendCode = normalizeToFrontendSeatCode(s.seatId)
+            claimsMap.set(frontendCode, status)
+          }
+        }
+
+        const claims = Array.from(claimsMap.entries()).map(([code, status]) => ({ code, status }))
         return Response.json({ claims }, { headers: { 'Cache-Control': 'no-store' } })
       }
     } catch {
