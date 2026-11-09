@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { appAuth } from '@/lib/app-auth'
 import { getPayloadClient } from '@/lib/payload'
 import { fetchGateway } from '@/lib/backend-api'
+import { syncEventToMariaDB } from '@/lib/mariadb'
 import { failure, verifyOrigin } from '@/lib/http'
 import type { Event } from '@/payload-types'
 import { parseSeatLayout, SeatLayoutError } from '@/lib/seat-layout'
@@ -256,12 +257,15 @@ export async function POST(request: Request) {
 
     // 8. Sync directly to Spring Boot Backend (MariaDB & Redis)
     let backendEventId = original?.id || backendEvent?.id || (body.action === 'update' ? body.id : undefined)
+    let venueId = 'aa632f5a-2038-44f2-b451-8b4cfb0c509c'
+    const startsAt = date.toISOString()
+    const endsAt = new Date(date.getTime() + 4 * 3600 * 1000).toISOString()
+
     try {
       const venuesPage = await fetchGateway<any>('/api/v1/venues?page=0&size=20').catch(() => null)
-      let venueId = venuesPage?.content?.[0]?.id || 'aa632f5a-2038-44f2-b451-8b4cfb0c509c'
-
-      const startsAt = date.toISOString()
-      const endsAt = new Date(date.getTime() + 4 * 3600 * 1000).toISOString()
+      if (venuesPage?.content?.[0]?.id) {
+        venueId = venuesPage.content[0].id
+      }
 
       if (body.action === 'create') {
         const createdBackendEvent = await fetchGateway<any>('/api/v1/events', {
@@ -335,6 +339,22 @@ export async function POST(request: Request) {
       }
     } catch (err) {
       console.warn('Backend gateway sync note:', err)
+    }
+
+    // Direct MariaDB sync to guarantee image_url and event info are recorded into MariaDB!
+    const effectiveEventId = backendEventId || body.id || original?.id
+    if (effectiveEventId) {
+      await syncEventToMariaDB({
+        id: effectiveEventId,
+        title,
+        description,
+        venueId: backendEvent?.venueId || venueId,
+        startsAt,
+        endsAt,
+        category,
+        imageUrl,
+        slug: eventSlug,
+      }).catch((e) => console.warn('Direct MariaDB sync note:', e))
     }
 
     // 9. Sync to PayloadCMS

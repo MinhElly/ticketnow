@@ -309,14 +309,16 @@ export function EventBuilder({ event, onClose, onSaved }: EventBuilderProps) {
           form.set('file', file)
           const upload = await fetch('/api/ticketnow/upload', { method: 'POST', body: form })
           const result = await upload.json().catch(() => ({}))
-          if (upload.ok && result.id) {
-            image = result.id
+          if (upload.ok && (result.url || result.id)) {
+            image = result.url || result.id
             setImageId(image)
+            if (result.url) setCoverURL(result.url)
           }
         } catch {
           // If upload fails, proceed with current imageId
         }
       }
+      const finalImageUrl = coverURL || image || imageId || undefined
       const response = await fetch('/api/ticketnow/manage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -326,7 +328,8 @@ export function EventBuilder({ event, onClose, onSaved }: EventBuilderProps) {
           ...info,
           date: vnISO(info.date),
           onSaleAt: info.onSaleAt ? vnISO(info.onSaleAt) : undefined,
-          image,
+          image: finalImageUrl,
+          imageUrl: finalImageUrl,
           tiers: tiers.map(({ localKey, ...tier }) => tier),
           seatLayout: layout,
         }),
@@ -379,7 +382,7 @@ export function EventBuilder({ event, onClose, onSaved }: EventBuilderProps) {
       const upload = await fetch('/api/ticketnow/upload', { method: 'POST', body: form })
       const result = await upload.json().catch(() => ({}))
       if (!upload.ok) throw new Error(result.error || 'Tải ảnh thất bại.')
-      setImageId(result.id)
+      setImageId(result.url || result.id)
       if (result.url) {
         setCoverURL(result.url)
       }

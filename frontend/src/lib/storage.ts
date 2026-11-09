@@ -4,11 +4,10 @@ import path from 'node:path'
 
 export function getUploadDirectories(): string[] {
   const cwd = process.cwd()
+  const baseDir = cwd.endsWith('frontend') ? cwd : path.join(cwd, 'frontend')
   return [
-    path.join(cwd, 'frontend', 'public', 'uploads'),
+    path.join(baseDir, 'public', 'uploads'),
     path.join(cwd, 'public', 'uploads'),
-    path.resolve(cwd, '..', 'frontend', 'public', 'uploads'),
-    path.resolve(cwd, '..', 'public', 'uploads'),
   ]
 }
 

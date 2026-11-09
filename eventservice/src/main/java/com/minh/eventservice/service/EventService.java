@@ -154,8 +154,18 @@ public class EventService {
     public EventResponse update(String id, EventRequest r) {
         Event e = require(id);
         requireOwnerOrAdmin(e);
-        requireDraft(e);
-        apply(e, r);
+        if (e.getStatus() == EventStatus.DRAFT) {
+            apply(e, r);
+        } else {
+            if (r.title() != null && !r.title().isBlank()) e.setTitle(r.title().trim());
+            if (r.description() != null) e.setDescription(r.description());
+            if (r.category() != null) e.setCategory(r.category().trim());
+            if (r.imageUrl() != null) e.setImageUrl(r.imageUrl().trim());
+            if (r.startsAt() != null && r.endsAt() != null && r.endsAt().isAfter(r.startsAt())) {
+                e.setStartsAt(r.startsAt());
+                e.setEndsAt(r.endsAt());
+            }
+        }
         return toResponse(events.saveAndFlush(e));
     }
 
