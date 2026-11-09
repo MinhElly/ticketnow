@@ -215,7 +215,13 @@ export async function POST(request: Request) {
 
     if (typeof body.image === 'string' && body.image.trim()) {
       const trimmed = body.image.trim()
-      if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+      if (
+        trimmed.startsWith('http://') ||
+        trimmed.startsWith('https://') ||
+        trimmed.startsWith('/uploads/') ||
+        trimmed.startsWith('/api/') ||
+        trimmed.startsWith('/')
+      ) {
         imageUrl = trimmed
       } else {
         try {

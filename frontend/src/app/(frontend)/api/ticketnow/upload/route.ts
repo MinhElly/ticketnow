@@ -1,7 +1,7 @@
 import { appAuth } from '@/lib/app-auth'
 import { getPayloadClient } from '@/lib/payload'
 import { failure, verifyOrigin } from '@/lib/http'
-import fs from 'node:fs/promises'
+import { saveUploadedFile } from '@/lib/storage'
 import path from 'node:path'
 import { randomUUID } from 'node:crypto'
 
@@ -33,15 +33,8 @@ export async function POST(request: Request) {
     const cleanBaseName = path.basename(file.name, ext).replace(/[^a-zA-Z0-9_-]/g, '_')
     const fileName = `${cleanBaseName}-${randomUUID().slice(0, 8)}${ext}`
 
-    // 1. Guaranteed local storage in public/uploads
-    let localUrl = `/uploads/${fileName}`
-    try {
-      const uploadsDir = path.join(process.cwd(), 'public', 'uploads')
-      await fs.mkdir(uploadsDir, { recursive: true })
-      await fs.writeFile(path.join(uploadsDir, fileName), buffer)
-    } catch (err) {
-      console.warn('Local disk write note:', err)
-    }
+    // 1. Guaranteed multi-directory local storage with dedicated serving route
+    const localUrl = await saveUploadedFile(fileName, buffer)
 
     // 2. Sync to Payload Media collection if available
     let mediaDoc: any = null
@@ -62,13 +55,13 @@ export async function POST(request: Request) {
       console.warn('Payload media create note:', err)
     }
 
+    // Always return localUrl (/uploads/fileName) as primary url to ensure instant 100% reliable fetch
     const resultId = mediaDoc?.id ? String(mediaDoc.id) : localUrl
-    const resultUrl = mediaDoc?.url || localUrl
 
     return Response.json({
       ok: true,
       id: resultId,
-      url: resultUrl,
+      url: localUrl,
       fileName,
     })
   } catch (error) {
