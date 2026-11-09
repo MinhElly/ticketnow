@@ -1,0 +1,82 @@
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;450;500;550;600;650;700;750;800&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Be Vietnam Pro', sans-serif;
+  --color-ink: #182823;
+  --color-muted: #7b827e;
+  --color-mint: #b6f17c;
+  --color-line: #e9ece9;
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  body {
+    background: #fafbf9;
+    color: #182823;
+    font-family: var(--font-sans);
+  }
+  button,
+  a,
+  input,
+  select {
+    -webkit-tap-highlight-color: transparent;
+  }
+  button,
+  select {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: wait;
+    opacity: 0.55;
+  }
+  button,
+  a,
+  input,
+  textarea,
+  select {
+    outline-offset: 4px;
+  }
+  ::selection {
+    background: #b6f17c;
+    color: #182823;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply inline-flex min-h-11 items-center justify-center gap-3 rounded-lg bg-mint px-5 py-3 text-xs font-bold text-ink transition hover:bg-[#a5e969] disabled:opacity-50;
+  }
+  .btn-secondary {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-line bg-white px-5 py-3 text-xs font-semibold transition hover:border-emerald-500;
+  }
+  .field {
+    @apply w-full rounded-lg border border-stone-200 bg-white px-3.5 py-3 text-sm outline-none transition placeholder:text-stone-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100;
+  }
+}
+
+.custom-code-fragment {
+  display: contents;
+}
+
+.bypass-link {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  z-index: 2147483647;
+  transform: translateY(-150%);
+  border-radius: 6px;
+  background: #111827;
+  color: #fff;
+  padding: 8px 12px;
+  font:
+    600 14px/1.2 system-ui,
+    sans-serif;
+  text-decoration: none;
+}
+
+.bypass-link:focus {
+  transform: translateY(0);
+}

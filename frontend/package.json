@@ -1,0 +1,52 @@
+{
+  "name": "ticketnow-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "dev:host": "next dev -p 3000 -H 0.0.0.0",
+    "build": "payload build",
+    "start": "next start -p 3000",
+    "type-check": "tsc --noEmit --incremental false",
+    "format": "oxfmt",
+    "generate:importmap": "payload generate:importmap",
+    "generate:types": "payload generate:types",
+    "payload": "payload"
+  },
+  "dependencies": {
+    "@payloadcms/figma": "1.0.0-beta.1",
+    "@payloadcms/next": "4.0.0-beta.4",
+    "@payloadcms/plugin-cloud-storage": "4.0.0-beta.4",
+    "@payloadcms/plugin-mcp": "4.0.0-beta.4",
+    "@payloadcms/richtext-lexical": "4.0.0-beta.4",
+    "@payloadcms/translations": "4.0.0-beta.4",
+    "@payloadcms/ui": "4.0.0-beta.4",
+    "graphql": "^16.8.1",
+    "html-react-parser": "^5.2.10",
+    "lucide-react": "^1.67.0",
+    "monaco-editor": "0.55.1",
+    "next": "16.4.2",
+    "payload": "4.0.0-beta.4",
+    "qrcode": "^1.5.4",
+    "react": "19.3.1",
+    "react-dom": "19.3.1",
+    "sharp": "^0.35.4"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1",
+    "@tailwindcss/postcss": "^4.0.0",
+    "@types/node": "24.12.3",
+    "@types/qrcode": "^1.5.6",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "oxfmt": "^0.73.0",
+    "postcss": "^8.5.0",
+    "tailwindcss": "^4.0.0",
+    "typescript": "6.0.3"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9"
+  }
+}
