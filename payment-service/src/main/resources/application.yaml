@@ -28,7 +28,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: http://localhost:8180/realms/ticketnow
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://${KEYCLOAK_HOST:localhost}:${KEYCLOAK_PORT:8180}/realms/${KEYCLOAK_REALM:ticketnow}}
           audiences:
             - ticketnow-api
   kafka:
@@ -41,7 +41,7 @@ spring:
         enable.idempotence: true
 
 server:
-  port: 8085
+  port: ${PAYMENT_SERVICE_PORT:8085}
 
 payment:
   gateway:

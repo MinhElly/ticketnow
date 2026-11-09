@@ -33,17 +33,17 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: http://localhost:8180/realms/ticketnow
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://${KEYCLOAK_HOST:localhost}:${KEYCLOAK_PORT:8180}/realms/${KEYCLOAK_REALM:ticketnow}}
           audiences:
             - ticketnow-api
 
 server:
-  port: 8083
+  port: ${SEAT_INVENTORY_PORT:8083}
 
 grpc:
   server:
     enabled: ${GRPC_SERVER_ENABLED:true}
-    port: ${GRPC_SERVER_PORT:9083}
+    port: ${SEAT_INVENTORY_GRPC_PORT:9083}
 
 seat:
   lock:

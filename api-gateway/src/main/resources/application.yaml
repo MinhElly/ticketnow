@@ -1,4 +1,8 @@
 spring:
+  config:
+    import:
+      - "optional:file:./deploy/compose/.env[.properties]"
+      - "optional:file:../deploy/compose/.env[.properties]"
   application:
     name: api-gateway
   cloud:
@@ -30,9 +34,9 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: http://localhost:8180/realms/ticketnow
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://${KEYCLOAK_HOST:localhost}:${KEYCLOAK_PORT:8180}/realms/${KEYCLOAK_REALM:ticketnow}}
           audiences:
             - ticketnow-api
 
 server:
-  port: 8080
+  port: ${GATEWAY_PORT:8080}

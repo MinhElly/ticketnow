@@ -7,9 +7,9 @@ spring:
   application:
     name: event-service
   datasource:
-    url: ${DB_URL:jdbc:mariadb://localhost:${DB_PORT:3307}/${DB_NAME:ticketnow_event}}
-    username: ${DB_USERNAME:event_user}
-    password: ${DB_PASSWORD}
+    url: ${EVENT_DB_URL:${DB_URL:jdbc:mariadb://${DB_HOST:localhost}:${DB_PORT:3307}/${EVENT_DB_NAME:${DB_NAME:ticketnow_event}}?createDatabaseIfNotExist=true}}
+    username: ${EVENT_DB_USERNAME:${DB_USERNAME:event_user}}
+    password: ${EVENT_DB_PASSWORD:${DB_PASSWORD}}
   flyway:
     enabled: true
     locations: classpath:db/migration
@@ -29,11 +29,11 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: http://localhost:8180/realms/ticketnow
+          issuer-uri: ${KEYCLOAK_ISSUER_URI:http://${KEYCLOAK_HOST:localhost}:${KEYCLOAK_PORT:8180}/realms/${KEYCLOAK_REALM:ticketnow}}
           audiences:
             - ticketnow-api
 server:
-  port: 8081
+  port: ${EVENT_SERVICE_PORT:8081}
 
 seat-inventory:
   client: ${SEAT_INVENTORY_CLIENT:grpc}
