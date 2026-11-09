@@ -36,5 +36,19 @@ export default async function OrganizerPage() {
     }
   }
 
+  // 3. Load bookings (try PayloadCMS)
+  try {
+    const payload = await getPayloadClient()
+    const result = await payload.find({
+      collection: 'bookings',
+      depth: 1,
+      overrideAccess: true,
+      limit: 100,
+    })
+    bookings = result?.docs || []
+  } catch {
+    bookings = []
+  }
+
   return <Dashboard user={user} events={events} bookings={bookings} />
 }
