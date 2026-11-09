@@ -1,8 +1,20 @@
 import type { Media } from '@/payload-types'
 import type { Event } from '@/types/event'
 
-export const mediaOf = (value: any) =>
-  value && typeof value === 'object' && value.url ? (value as Media) : null
+export const mediaOf = (value: any) => {
+  if (!value) return null
+  if (typeof value === 'object' && value.url) return value as Media
+  if (
+    typeof value === 'string' &&
+    (value.startsWith('http://') ||
+      value.startsWith('https://') ||
+      value.startsWith('/') ||
+      value.startsWith('blob:'))
+  ) {
+    return { url: value, alt: 'Ảnh sự kiện' } as any
+  }
+  return null
+}
 
 export const priceOf = (event: Event) => {
   const tiers = event.ticketTiers || event.tiers || []

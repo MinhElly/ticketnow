@@ -117,6 +117,7 @@ export function EventBuilder({ event, onClose, onSaved }: EventBuilderProps) {
     return ''
   })
   const [file, setFile] = useState<File | null>(null)
+  const [uploadingImage, setUploadingImage] = useState(false)
   const [busy, setBusy] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
   const [dirty, setDirty] = useState(false)
@@ -303,15 +304,18 @@ export function EventBuilder({ event, onClose, onSaved }: EventBuilderProps) {
     try {
       let image = imageId
       if (file) {
-        const form = new FormData()
-        form.set('file', file)
-        const upload = await fetch('/api/ticketnow/upload', { method: 'POST', body: form })
-        const result = await upload.json().catch(() => ({}))
-        if (!upload.ok) throw new Error(result.error || 'Tải ảnh thất bại.')
-        image = result.id
-        setImageId(image)
-        setCoverURL(result.url ?? '')
-        setFile(null)
+        try {
+          const form = new FormData()
+          form.set('file', file)
+          const upload = await fetch('/api/ticketnow/upload', { method: 'POST', body: form })
+          const result = await upload.json().catch(() => ({}))
+          if (upload.ok && result.id) {
+            image = result.id
+            setImageId(image)
+          }
+        } catch {
+          // If upload fails, proceed with current imageId
+        }
       }
       const response = await fetch('/api/ticketnow/manage', {
         method: 'POST',
@@ -352,18 +356,59 @@ export function EventBuilder({ event, onClose, onSaved }: EventBuilderProps) {
     else onClose()
   }
 
-  function handleCoverChange(value: File | undefined) {
+  async function handleCoverChange(value: File | undefined) {
     if (!value) return
     if (
-      value.size > 8 * 1024 * 1024 ||
-      !['image/jpeg', 'image/png', 'image/webp'].includes(value.type)
+      value.size > 10 * 1024 * 1024 ||
+      !['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(value.type)
     ) {
-      setErrors(['Ảnh cần là JPG, PNG hoặc WebP nhỏ hơn 8MB.'])
+      setErrors(['Ảnh cần là JPG, PNG, WebP hoặc GIF nhỏ hơn 10MB.'])
       return
     }
+
+    const localPreview = URL.createObjectURL(value)
+    setCoverURL(localPreview)
     setFile(value)
     setDirty(true)
     setErrors([])
+
+    setUploadingImage(true)
+    try {
+      const form = new FormData()
+      form.set('file', value)
+      const upload = await fetch('/api/ticketnow/upload', { method: 'POST', body: form })
+      const result = await upload.json().catch(() => ({}))
+      if (!upload.ok) throw new Error(result.error || 'Tải ảnh thất bại.')
+      setImageId(result.id)
+      if (result.url) {
+        setCoverURL(result.url)
+      }
+      setFile(null)
+    } catch (err) {
+      console.warn('Cover upload error:', err)
+      setErrors([err instanceof Error ? err.message : 'Tải ảnh thất bại. Vui lòng thử lại.'])
+    } finally {
+      setUploadingImage(false)
+    }
+  }
+
+  function handleCoverUrlChange(url: string) {
+    if (!url || !url.startsWith('http')) {
+      setErrors(['Vui lòng nhập link ảnh hợp lệ bắt đầu bằng http:// hoặc https://'])
+      return
+    }
+    setImageId(url)
+    setCoverURL(url)
+    setFile(null)
+    setDirty(true)
+    setErrors([])
+  }
+
+  function handleRemoveCover() {
+    setImageId(null)
+    setCoverURL('')
+    setFile(null)
+    setDirty(true)
   }
 
   return (
@@ -460,7 +505,10 @@ export function EventBuilder({ event, onClose, onSaved }: EventBuilderProps) {
               info={info}
               onChange={updateInfo}
               coverURL={coverURL}
+              isUploading={uploadingImage}
               onCoverChange={handleCoverChange}
+              onCoverUrlChange={handleCoverUrlChange}
+              onRemoveCover={handleRemoveCover}
             />
           )}
 
