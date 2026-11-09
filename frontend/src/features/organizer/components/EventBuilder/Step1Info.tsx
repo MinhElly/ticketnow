@@ -31,7 +31,7 @@ const categories = [
   'Lễ hội',
 ]
 
-const cities = ['TP. Hồ Chí Minh', 'Hà Nội', 'Đà Nẵng', 'Đà Lạt']
+const cities = ['TP. Hồ Chí Minh', 'Hà Nội', 'Đà Nẵng', 'Đà Lạt', 'Toàn quốc']
 
 export function Step1Info({ info, onChange, coverURL, onCoverChange }: Step1InfoProps) {
   return (

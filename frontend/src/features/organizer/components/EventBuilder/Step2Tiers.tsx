@@ -65,12 +65,12 @@ export function Step2Tiers({ tiers, onUpdateTier, onAddTier, onRemoveTier }: Ste
               </label>
 
               <label className="text-xs font-semibold text-ink">
-                Mã khu (1-3 chữ in hoa)
+                Mã khu (1–6 ký tự)
                 <input
                   value={tier.code}
                   onChange={(e) => onUpdateTier(index, { code: e.target.value.toUpperCase() })}
-                  maxLength={3}
-                  placeholder="V"
+                  maxLength={6}
+                  placeholder="VIP"
                   className="field mt-1 text-xs uppercase"
                 />
               </label>

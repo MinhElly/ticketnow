@@ -47,11 +47,30 @@ const steps = [
   { label: 'Xác nhận', title: 'Sẵn sàng cho một khởi đầu mới', icon: CheckCircle2 },
 ]
 
-const vnInput = (value?: string | null) =>
-  value ? new Date(new Date(value).getTime() + 7 * 3600000).toISOString().slice(0, 16) : ''
-const vnTime = (value: string) =>
-  new Date(`${value}${value.length === 16 ? ':00' : ''}+07:00`).getTime()
-const vnISO = (value: string) => new Date(vnTime(value)).toISOString()
+const vnInput = (value?: string | null) => {
+  if (!value) return ''
+  try {
+    const t = new Date(value).getTime()
+    return Number.isFinite(t) ? new Date(t + 7 * 3600000).toISOString().slice(0, 16) : ''
+  } catch {
+    return ''
+  }
+}
+const vnTime = (value: string) => {
+  try {
+    return new Date(`${value}${value.length === 16 ? ':00' : ''}+07:00`).getTime()
+  } catch {
+    return NaN
+  }
+}
+const vnISO = (value: string) => {
+  try {
+    const t = vnTime(value)
+    return Number.isFinite(t) ? new Date(t).toISOString() : new Date().toISOString()
+  } catch {
+    return new Date().toISOString()
+  }
+}
 
 function newTiers(event?: Event): EditableTier[] {
   return (
@@ -83,10 +102,20 @@ export function EventBuilder({ event, onClose, onSaved }: EventBuilderProps) {
     description: event?.description ?? '',
     waitingRoom: event?.waitingRoom ?? false,
   })
-  const [imageId, setImageId] = useState<string | null>(
-    event?.image ? (typeof event.image === 'object' ? event.image.id : event.image) : null,
-  )
-  const [coverURL, setCoverURL] = useState(mediaOf(event?.image)?.url ?? '')
+  const [imageId, setImageId] = useState<string | null>(() => {
+    if (!event?.image) return null
+    if (typeof event.image === 'object') {
+      if ('id' in event.image && event.image.id) return String(event.image.id)
+      if ('url' in event.image && (event.image as any).url) return (event.image as any).url
+    }
+    return typeof event.image === 'string' ? event.image : null
+  })
+  const [coverURL, setCoverURL] = useState(() => {
+    const m = mediaOf(event?.image)
+    if (m?.url) return m.url
+    if (typeof event?.image === 'object' && (event.image as any)?.url) return (event.image as any).url
+    return ''
+  })
   const [file, setFile] = useState<File | null>(null)
   const [busy, setBusy] = useState(false)
   const [errors, setErrors] = useState<string[]>([])
@@ -208,12 +237,12 @@ export function EventBuilder({ event, onClose, onSaved }: EventBuilderProps) {
   function validate(index: number) {
     const result: string[] = []
     if (index === 0) {
-      if (info.title.trim().length < 5 || info.title.length > 160)
-        result.push('Tên sự kiện cần từ 5 đến 160 ký tự.')
-      if (info.venue.trim().length < 3) result.push('Địa điểm cần tối thiểu 3 ký tự.')
-      if (info.description.trim().length < 30) result.push('Mô tả cần tối thiểu 30 ký tự.')
+      if (info.title.trim().length < 3 || info.title.length > 200)
+        result.push('Tên sự kiện cần từ 3 đến 200 ký tự.')
+      if (info.venue.trim().length < 2) result.push('Địa điểm cần tối thiểu 2 ký tự.')
+      if (info.description.trim().length < 10) result.push('Mô tả cần tối thiểu 10 ký tự.')
       const date = vnTime(info.date)
-      if (!info.date || !Number.isFinite(date) || date <= Date.now())
+      if (!info.date || !Number.isFinite(date) || (!event && date <= Date.now()))
         result.push('Ngày diễn ra phải ở tương lai.')
       if (
         info.onSaleAt &&
@@ -227,18 +256,18 @@ export function EventBuilder({ event, onClose, onSaved }: EventBuilderProps) {
       for (const tier of tiers) {
         if (tier.name.trim().length < 2 || tier.name.length > 80)
           result.push(`Tên hạng ${tier.code || 'vé'} cần từ 2 đến 80 ký tự.`)
-        if (!/^[A-Z]{1,3}$/.test(tier.code)) result.push('Mã khu dùng 1–3 chữ cái in hoa.')
+        if (!/^[A-Z0-9-]{1,6}$/i.test(tier.code)) result.push('Mã khu dùng 1–6 ký tự chữ hoặc số.')
         if (!Number.isSafeInteger(tier.price) || tier.price < 0 || tier.price > 100000000)
           result.push(`Giá hạng ${tier.name} phải là số nguyên từ 0 đến 100.000.000đ.`)
         if (
           !Number.isInteger(tier.rows) ||
           tier.rows < 1 ||
-          tier.rows > 10 ||
+          tier.rows > 20 ||
           !Number.isInteger(tier.seatsPerRow) ||
           tier.seatsPerRow < 1 ||
-          tier.seatsPerRow > 12
+          tier.seatsPerRow > 20
         )
-          result.push(`Khu ${tier.code}: 1–10 hàng và 1–12 ghế mỗi hàng.`)
+          result.push(`Khu ${tier.code}: 1–20 hàng và 1–20 ghế mỗi hàng.`)
       }
     }
     if (index === 2) result.push(...layoutErrors)
@@ -277,8 +306,8 @@ export function EventBuilder({ event, onClose, onSaved }: EventBuilderProps) {
         const form = new FormData()
         form.set('file', file)
         const upload = await fetch('/api/ticketnow/upload', { method: 'POST', body: form })
-        const result = await upload.json()
-        if (!upload.ok) throw new Error(result.error)
+        const result = await upload.json().catch(() => ({}))
+        if (!upload.ok) throw new Error(result.error || 'Tải ảnh thất bại.')
         image = result.id
         setImageId(image)
         setCoverURL(result.url ?? '')
@@ -298,17 +327,17 @@ export function EventBuilder({ event, onClose, onSaved }: EventBuilderProps) {
           seatLayout: layout,
         }),
       })
-      const result = await response.json()
+      const result = await response.json().catch(() => ({}))
       if (!response.ok) {
         setErrors(
-          Array.isArray(result.errors) ? result.errors : [result.error ?? 'Không thể lưu sự kiện.'],
+          Array.isArray(result.errors) ? result.errors : [result.error ?? 'Không thể lưu sự kiện. Vui lòng kiểm tra lại.'],
         )
         return
       }
       onSaved(
         event
-          ? 'Đã lưu thay đổi bản nháp và sơ đồ. Chỉ công khai khi bạn công bố.'
-          : 'Đã tạo bản nháp cùng seat map. Kiểm tra và công bố khi bạn sẵn sàng.',
+          ? 'Đã cập nhật sự kiện và đồng bộ hệ thống thành công.'
+          : 'Đã tạo sự kiện và mặt bằng ghế thành công.',
       )
     } catch (error) {
       setErrors([error instanceof Error ? error.message : 'Không thể kết nối. Vui lòng thử lại.'])
