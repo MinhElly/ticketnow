@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ticketnow.com/schemas/events/envelope.schema.json",
+  "title": "EventEnvelope",
+  "type": "object",
+  "required": ["eventId", "type", "version", "occurredAt", "aggregateId", "payload"],
+  "properties": {
+    "eventId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this specific event occurrence"
+    },
+    "type": {
+      "type": "string",
+      "description": "Name of the event type, e.g., PaymentSucceeded, PaymentFailed"
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Schema version of the event payload"
+    },
+    "occurredAt": {
+      "type": "string",
+      "format": "date-time",
+      "description": "UTC timestamp when the domain event occurred"
+    },
+    "aggregateId": {
+      "type": "string",
+      "description": "Identifier of the primary aggregate (e.g. bookingId) used as Kafka partition key"
+    },
+    "traceId": {
+      "type": "string",
+      "description": "W3C trace context or OpenTelemetry trace ID for distributed tracing"
+    },
+    "payload": {
+      "type": "object",
+      "description": "Event-specific domain payload"
+    }
+  }
+}

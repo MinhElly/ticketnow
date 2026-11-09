@@ -17,7 +17,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
         "spring.datasource.username=sa",
         "spring.datasource.password=",
         "spring.jpa.hibernate.ddl-auto=validate",
-        "spring.jpa.show-sql=false"
+        "spring.jpa.show-sql=false",
+        "booking.kafka.enabled=false"
 })
 @Import(BookingServiceApplicationTests.TestConfig.class)
 class BookingServiceApplicationTests {
@@ -37,7 +38,7 @@ class BookingServiceApplicationTests {
 
     @Test
     void contextLoadsAndFlywayAppliesMigrations() {
-        assertEquals("1", flyway.info().current().getVersion().toString());
+        assertEquals("2", flyway.info().current().getVersion().toString());
         assertEquals(0, flyway.migrate().migrationsExecuted);
     }
 }

@@ -3,7 +3,7 @@
     "_postman_id": "9150422e-7c40-516f-9c2b-1b2259823eb6",
     "name": "TicketNow - Current APIs + Keycloak",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "All 36 current Event, Seat Inventory & Booking Service operations through Gateway, interactive Keycloak PKCE, security checks, refresh/logout and optional admin account provisioning. Import the companion environment and read README.md. No public self-registration API exists; registrationAllowed is false. No live operations were run when generating this file."
+    "description": "All 41 current Event, Seat Inventory, Booking & Payment Service operations through Gateway, interactive Keycloak PKCE, security checks, refresh/logout and optional admin account provisioning. Import the companion environment and read README.md. No public self-registration API exists; registrationAllowed is false. No live operations were run when generating this file."
   },
   "item": [
     {
@@ -1625,7 +1625,198 @@
       ]
     },
     {
-      "name": "08 - Security checks",
+      "name": "08 - Payments (customer)",
+      "description": "",
+      "item": [
+        {
+          "name": "Create payment",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/payments",
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customer_access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": \"{{booking_id}}\",\n  \"amount\": 500000,\n  \"description\": \"Ticket payment\",\n  \"provider\": \"MOCK\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) { pm.environment.set(\"payment_id\", pm.response.json().id); }",
+                  "if (pm.response.code === 201) {",
+                  " const b = pm.response.json();",
+                  " pm.test(\"Payment status is PENDING\", () => pm.expect(b.status).to.eql(\"PENDING\"));",
+                  " pm.test(\"OrderCode is positive number\", () => pm.expect(b.orderCode).to.be.above(0));",
+                  " if (b.orderCode) pm.environment.set(\"order_code\", String(b.orderCode));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get payment",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/payments/{{payment_id}}",
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customer_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get payments by booking",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/payments/by-booking/{{booking_id}}",
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customer_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  " pm.test(\"Returns payments array\", () => pm.expect(pm.response.json()).to.be.an(\"array\"));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Payment webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/payments/webhook",
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orderCode\": \"{{order_code}}\",\n  \"amount\": 500000,\n  \"status\": \"PAID\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  " pm.test(\"Webhook returned error 0\", () => pm.expect(pm.response.json().error).to.eql(0));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Simulate payment success",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/v1/payments/mock/simulate-success/{{order_code}}",
+            "description": "",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  " pm.test(\"Status changed to PAID\", () => pm.expect(pm.response.json().status).to.eql(\"PAID\"));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "09 - Security checks",
       "description": "",
       "item": [
         {
@@ -2306,7 +2497,7 @@
       ]
     },
     {
-      "name": "09 - Registration (optional admin provisioning)",
+      "name": "10 - Registration (optional admin provisioning)",
       "description": "Self-registration is currently DISABLED (registrationAllowed=false); there is no /api/v1/auth/register. Set enable_admin_registration=true explicitly, fill local admin credentials and new user fields, then send 01-05 in order. Newly created users log in through the PKCE helper with their own credentials.",
       "item": [
         {
@@ -2580,7 +2771,7 @@
       ]
     },
     {
-      "name": "10 - Refresh and logout (optional)",
+      "name": "11 - Refresh and logout (optional)",
       "description": "",
       "item": [
         {
@@ -2694,7 +2885,7 @@
       ]
     },
     {
-      "name": "11 - Cleanup (optional, deletes test data)",
+      "name": "12 - Cleanup (optional, deletes test data)",
       "description": "Set enable_cleanup=true, then run in order after the other tests. Deletes the resources whose IDs are in the selected environment.",
       "item": [
         {

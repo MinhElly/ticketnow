@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ticketnow.com/schemas/events/payment-succeeded.schema.json",
+  "title": "PaymentSucceededPayload",
+  "type": "object",
+  "required": ["paymentId", "bookingId", "orderCode", "amount", "currency", "provider", "paidAt"],
+  "properties": {
+    "paymentId": {
+      "type": "string"
+    },
+    "bookingId": {
+      "type": "string"
+    },
+    "orderCode": {
+      "type": "integer"
+    },
+    "amount": {
+      "type": "integer"
+    },
+    "currency": {
+      "type": "string",
+      "default": "VND"
+    },
+    "provider": {
+      "type": "string",
+      "enum": ["PAYOS", "MOCK"]
+    },
+    "paidAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "transactionReference": {
+      "type": "string"
+    }
+  }
+}

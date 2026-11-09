@@ -238,4 +238,50 @@ public class BookingService {
         booking.setStatus(BookingStatus.CONFIRMED);
         return BookingResponse.from(bookingRepository.save(booking));
     }
+
+    @Transactional
+    public BookingResponse confirmBookingFromPayment(String id) {
+        Booking booking = bookingRepository.findById(id)
+                .orElseThrow(() -> ApiException.notFound("Booking"));
+
+        if (booking.getStatus() == BookingStatus.CONFIRMED) {
+            return BookingResponse.from(booking);
+        }
+
+        if (booking.getStatus() != BookingStatus.AWAITING_PAYMENT) {
+            throw ApiException.conflict("Only bookings in AWAITING_PAYMENT status can be confirmed (current status: " + booking.getStatus() + ")");
+        }
+
+        List<String> seatIds = booking.getItems().stream()
+                .map(i -> i.getId().getSeatId())
+                .toList();
+
+        seatInventoryClient.confirmSeats(booking.getEventId(), seatIds, booking.getId());
+
+        booking.setStatus(BookingStatus.CONFIRMED);
+        return BookingResponse.from(bookingRepository.save(booking));
+    }
+
+    @Transactional
+    public BookingResponse cancelBookingFromPayment(String id) {
+        Booking booking = bookingRepository.findById(id)
+                .orElseThrow(() -> ApiException.notFound("Booking"));
+
+        if (booking.getStatus() == BookingStatus.CANCELLED) {
+            return BookingResponse.from(booking);
+        }
+
+        List<String> seatIds = booking.getItems().stream()
+                .map(i -> i.getId().getSeatId())
+                .toList();
+
+        try {
+            seatInventoryClient.releaseSeats(booking.getEventId(), seatIds, booking.getId());
+        } catch (Exception ex) {
+            log.warn("Failed to release seats for booking {} during payment failure cancellation: {}", id, ex.getMessage());
+        }
+
+        booking.setStatus(BookingStatus.CANCELLED);
+        return BookingResponse.from(bookingRepository.save(booking));
+    }
 }

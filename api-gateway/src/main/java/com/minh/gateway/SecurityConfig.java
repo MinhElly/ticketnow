@@ -32,9 +32,14 @@ public class SecurityConfig {
                                         "/api/v1/venues", "/api/v1/venues/**"
                                 ).permitAll()
                                 .pathMatchers(
+                                        "/api/v1/payments/webhook",
+                                        "/api/v1/payments/mock/**"
+                                ).permitAll()
+                                .pathMatchers(
                                         "/api/v1/events", "/api/v1/events/**",
                                         "/api/v1/venues", "/api/v1/venues/**",
-                                        "/api/v1/bookings", "/api/v1/bookings/**"
+                                        "/api/v1/bookings", "/api/v1/bookings/**",
+                                        "/api/v1/payments", "/api/v1/payments/**"
                                 ).authenticated()
                                 .anyExchange().denyAll()
                 )

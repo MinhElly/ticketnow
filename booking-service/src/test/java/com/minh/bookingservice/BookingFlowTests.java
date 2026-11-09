@@ -39,7 +39,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.datasource.password=",
         "spring.jpa.hibernate.ddl-auto=validate",
         "spring.jpa.show-sql=false",
-        "seat-inventory.client=none"
+        "seat-inventory.client=none",
+        "booking.kafka.enabled=false"
 })
 @Transactional
 @Import(BookingFlowTests.TestConfig.class)

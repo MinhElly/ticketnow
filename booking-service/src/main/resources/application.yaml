@@ -31,6 +31,13 @@ spring:
           issuer-uri: http://localhost:8180/realms/ticketnow
           audiences:
             - ticketnow-api
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: booking-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
 
 server:
   port: 8084
@@ -46,3 +53,6 @@ seat-inventory:
 
 booking:
   hold-ttl-seconds: ${BOOKING_HOLD_TTL_SECONDS:600}
+  kafka:
+    enabled: ${BOOKING_KAFKA_ENABLED:true}
+    payment-events-topic: ${PAYMENT_EVENTS_TOPIC:payment.events}

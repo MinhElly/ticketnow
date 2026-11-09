@@ -6,6 +6,10 @@ spring:
       server:
         webflux:
           routes:
+            - id: payment-service
+              uri: ${PAYMENT_SERVICE_URL:http://localhost:8085}
+              predicates:
+                - Path=/api/v1/payments,/api/v1/payments/**
             - id: booking-service
               uri: ${BOOKING_SERVICE_URL:http://localhost:8084}
               predicates:
