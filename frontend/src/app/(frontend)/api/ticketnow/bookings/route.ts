@@ -157,17 +157,81 @@ export async function POST(request: Request) {
       return Response.json({ ok: true, id: booking.id })
     }
 
-    // 2. ACTION: CONFIRM / PAY / CANCEL / REFUND
+    // 2. ACTION: CREATE-PAYMENT / CONFIRM / PAY / CANCEL / REFUND
     if (
       typeof body.id !== 'string' ||
       body.id.length > 100 ||
-      !['pay', 'cancel', 'fail', 'refund'].includes(body.action)
+      !['create-payment', 'pay', 'confirm-payment', 'cancel', 'fail', 'refund'].includes(body.action)
     ) {
       throw new Error('Yêu cầu không hợp lệ.')
     }
 
-    // Handle PAY action
-    if (body.action === 'pay') {
+    // Handle CREATE-PAYMENT action (generates VietQR code & payment details)
+    if (body.action === 'create-payment') {
+      let amount = 0
+      let orderCode = Math.floor(100000 + Math.random() * 900000)
+      let qrCode = ''
+      let checkoutUrl = ''
+      let paymentId = ''
+
+      // Look up booking details
+      try {
+        const backendBooking = await fetchGateway<any>(`/api/v1/bookings/${body.id}`).catch(() => null)
+        if (backendBooking) {
+          amount = Number(backendBooking.totalAmount) || 0
+        } else {
+          const payload = await getPayloadClient()
+          const localBooking = await payload.findByID({
+            collection: 'bookings',
+            id: body.id,
+            user,
+            overrideAccess: false,
+            depth: 0,
+          }).catch(() => null)
+          if (localBooking) {
+            amount = Number(localBooking.total) || 0
+          }
+        }
+
+        // Call payment-service to create payment record
+        const payment = await fetchGateway<any>('/api/v1/payments', {
+          method: 'POST',
+          body: JSON.stringify({
+            bookingId: body.id,
+            amount: Math.max(1000, amount),
+            description: `TicketNow ${body.id.slice(0, 8)}`,
+            provider: 'MOCK',
+          }),
+        }).catch(() => null)
+
+        if (payment) {
+          paymentId = payment.id
+          orderCode = payment.orderCode || orderCode
+          qrCode = payment.qrCode || ''
+          checkoutUrl = payment.checkoutUrl || ''
+        }
+      } catch (err) {
+        console.warn('Payment link creation note:', err)
+      }
+
+      return Response.json({
+        ok: true,
+        payment: {
+          id: paymentId,
+          orderCode,
+          amount,
+          qrCode,
+          checkoutUrl,
+          bankName: 'MBBank (Ngân hàng Quân Đội)',
+          accountNumber: '0345678902',
+          accountName: 'TICKETNOW VIETNAM',
+          transferContent: `TN${orderCode}`,
+        },
+      })
+    }
+
+    // Handle PAY / CONFIRM-PAYMENT action
+    if (body.action === 'pay' || body.action === 'confirm-payment') {
       try {
         let amount = 0
         let eventId: string | null = null
@@ -195,20 +259,31 @@ export async function POST(request: Request) {
           }
         }
 
-        // Call payment-service to create payment record
-        const payment = await fetchGateway<any>('/api/v1/payments', {
-          method: 'POST',
-          body: JSON.stringify({
-            bookingId: body.id,
-            amount: Math.max(1000, amount),
-            description: `Payment for booking ${body.id}`,
-            provider: 'MOCK',
-          }),
-        }).catch(() => null)
+        // Determine orderCode
+        let orderCode = body.orderCode
+        if (!orderCode) {
+          const payments = await fetchGateway<any[]>(`/api/v1/payments/by-booking/${body.id}`).catch(() => [])
+          if (Array.isArray(payments) && payments.length > 0) {
+            orderCode = payments[0].orderCode
+          }
+        }
+
+        if (!orderCode) {
+          const payment = await fetchGateway<any>('/api/v1/payments', {
+            method: 'POST',
+            body: JSON.stringify({
+              bookingId: body.id,
+              amount: Math.max(1000, amount),
+              description: `Payment for booking ${body.id}`,
+              provider: 'MOCK',
+            }),
+          }).catch(() => null)
+          if (payment) orderCode = payment.orderCode
+        }
 
         // Simulate payment success (triggers Kafka PaymentSucceeded -> confirms booking & issues ticket)
-        if (payment?.orderCode) {
-          await fetchGateway<any>(`/api/v1/payments/mock/simulate-success/${payment.orderCode}`, {
+        if (orderCode) {
+          await fetchGateway<any>(`/api/v1/payments/mock/simulate-success/${orderCode}`, {
             method: 'POST',
           }).catch(() => null)
         }
@@ -234,7 +309,7 @@ export async function POST(request: Request) {
 
       // Also update local CMS booking if it exists
       try {
-        const booking = await changeBooking(user, body.id, body.action, body.method)
+        const booking = await changeBooking(user, body.id, 'pay', body.method)
         return Response.json({ ok: true, id: booking.id, status: booking.status })
       } catch {
         return Response.json({ ok: true, id: body.id, status: 'confirmed' })
