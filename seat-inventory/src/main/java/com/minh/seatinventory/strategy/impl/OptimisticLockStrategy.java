@@ -137,4 +137,28 @@ public class OptimisticLockStrategy implements SeatLockStrategy {
             log.info("Optimistic confirm succeeded for booking {} on {} seats", bookingId, toConfirm.size());
         }
     }
+
+    @Override
+    @Transactional
+    public void revertSold(String eventId, List<String> seatIds, String bookingId) {
+        if (seatIds == null || seatIds.isEmpty()) return;
+
+        List<Seat> seats = seatRepository.findById_EventIdAndId_SeatIdIn(eventId, seatIds.stream().distinct().toList());
+        List<Seat> toRevert = new ArrayList<>();
+
+        for (Seat seat : seats) {
+            if (seat.getStatus() == SeatStatus.SOLD
+                    && (bookingId == null || bookingId.isBlank() || bookingId.equals(seat.getHeldByBooking()))) {
+                seat.setStatus(SeatStatus.AVAILABLE);
+                seat.setHeldByBooking(null);
+                seat.setHeldUntil(null);
+                toRevert.add(seat);
+            }
+        }
+
+        if (!toRevert.isEmpty()) {
+            seatRepository.saveAll(toRevert);
+            log.info("Optimistic revert (SOLD -> AVAILABLE) succeeded for {} seats", toRevert.size());
+        }
+    }
 }

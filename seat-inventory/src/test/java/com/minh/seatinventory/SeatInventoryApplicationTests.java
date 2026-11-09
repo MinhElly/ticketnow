@@ -16,7 +16,8 @@ import org.mockito.Mockito;
     "spring.datasource.username=sa",
     "spring.datasource.password=",
     "spring.jpa.hibernate.ddl-auto=validate",
-    "spring.jpa.show-sql=false"
+    "spring.jpa.show-sql=false",
+    "grpc.server.port=0"
 })
 @Import(SeatInventoryApplicationTests.TestConfig.class)
 class SeatInventoryApplicationTests {

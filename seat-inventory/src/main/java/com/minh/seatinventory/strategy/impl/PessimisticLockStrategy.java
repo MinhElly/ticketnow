@@ -120,4 +120,32 @@ public class PessimisticLockStrategy implements SeatLockStrategy {
             log.info("Pessimistic confirm (HELD -> SOLD) succeeded for booking {} on {} seats", bookingId, toConfirm.size());
         }
     }
+
+    @Override
+    @Transactional
+    public void revertSold(String eventId, List<String> seatIds, String bookingId) {
+        if (seatIds == null || seatIds.isEmpty()) return;
+
+        List<Seat> seats = seatRepository.findSeatsForUpdateOrdered(eventId, seatIds.stream().distinct().sorted().toList());
+        List<Seat> toRevert = new ArrayList<>();
+
+        for (Seat seat : seats) {
+            if (isRevertable(seat, bookingId)) {
+                seat.setStatus(SeatStatus.AVAILABLE);
+                seat.setHeldByBooking(null);
+                seat.setHeldUntil(null);
+                toRevert.add(seat);
+            }
+        }
+
+        if (!toRevert.isEmpty()) {
+            seatRepository.saveAll(toRevert);
+            log.info("Pessimistic revert (SOLD -> AVAILABLE) succeeded for {} seats", toRevert.size());
+        }
+    }
+
+    private boolean isRevertable(Seat seat, String bookingId) {
+        return seat.getStatus() == SeatStatus.SOLD
+                && (bookingId == null || bookingId.isBlank() || bookingId.equals(seat.getHeldByBooking()));
+    }
 }

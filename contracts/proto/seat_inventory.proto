@@ -1,0 +1,98 @@
+syntax = "proto3";
+
+package ticketnow.seat.v1;
+
+option java_package = "com.minh.seatinventory.grpc";
+option java_multiple_files = true;
+option java_outer_classname = "SeatInventoryProto";
+
+// SeatInventory is the single source of truth for seat state.
+// Booking-service and event-service call this contract instead of the REST API
+// whenever low latency and a hard deadline are required.
+service SeatInventory {
+  // All-or-nothing hold of the requested seats. Calling again with the same
+  // booking_id is idempotent and refreshes the TTL of the existing hold.
+  rpc HoldSeats(HoldRequest) returns (HoldResponse);
+
+  // Compensation for a cancelled/failed booking. Repeated calls are no-op.
+  rpc ReleaseSeats(ReleaseRequest) returns (Empty);
+
+  // HELD -> SOLD once payment succeeded. Repeated calls are no-op.
+  rpc ConfirmSeats(ConfirmRequest) returns (Empty);
+
+  // Current availability of every seat of an event. Expired holds are
+  // reported as AVAILABLE even before the hold-expiry sweeper runs.
+  rpc GetAvailability(AvailabilityRequest) returns (AvailabilityResponse);
+
+  // Idempotent seat initialization for an event (used in batches <= 1000).
+  rpc InitializeSeats(InitSeatsRequest) returns (Empty);
+
+  // SOLD -> AVAILABLE when a refund is approved.
+  rpc RevertSold(RevertRequest) returns (Empty);
+}
+
+message HoldRequest {
+  string event_id = 1;
+  repeated string seat_ids = 2;
+  string booking_id = 3;
+  string user_id = 4;
+  // 0 means "use the server default TTL" (currently 600 seconds).
+  int32 ttl_seconds = 5;
+}
+
+message HoldResponse {
+  bool success = 1;
+  repeated string failed_seat_ids = 2;
+  // Unix epoch seconds at which the hold expires; 0 when success = false.
+  int64 expires_at_epoch = 3;
+  string message = 4;
+}
+
+message ReleaseRequest {
+  string event_id = 1;
+  repeated string seat_ids = 2;
+  string booking_id = 3;
+}
+
+message ConfirmRequest {
+  string event_id = 1;
+  repeated string seat_ids = 2;
+  string booking_id = 3;
+}
+
+message AvailabilityRequest {
+  string event_id = 1;
+}
+
+message AvailabilityResponse {
+  repeated SeatAvailability seats = 1;
+}
+
+message SeatAvailability {
+  string seat_id = 1;
+  string tier_id = 2;
+  // AVAILABLE | HELD | SOLD
+  string status = 3;
+  // Unix epoch seconds while HELD; 0 when the seat is not held.
+  int64 held_until_epoch = 4;
+}
+
+message InitSeatsRequest {
+  string event_id = 1;
+  repeated SeatSpec seats = 2;
+}
+
+message SeatSpec {
+  string seat_id = 1;
+  string tier_id = 2;
+}
+
+message RevertRequest {
+  string event_id = 1;
+  repeated string seat_ids = 2;
+  // When provided, only seats sold by this booking are reverted.
+  string booking_id = 3;
+}
+
+message Empty {
+}

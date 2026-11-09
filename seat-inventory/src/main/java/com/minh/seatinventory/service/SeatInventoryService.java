@@ -71,19 +71,30 @@ public class SeatInventoryService {
         return getEventSeats(eventId);
     }
 
+    /**
+     * REST entry point: keeps the existing 409 behavior when a hold fails.
+     */
     public HoldResult holdSeats(String eventId, HoldSeatsRequest request) {
-        int ttl = (request.getTtlSeconds() != null && request.getTtlSeconds() > 0)
-                ? request.getTtlSeconds()
-                : defaultTtlSeconds;
-
-        SeatLockStrategy strategy = strategyFactory.getStrategy();
-        HoldResult result = strategy.hold(eventId, request.getSeatIds(), request.getBookingId(), Duration.ofSeconds(ttl));
+        HoldResult result = attemptHoldSeats(eventId, request);
 
         if (!result.isSuccess()) {
             throw ApiException.conflict(result.getMessage() + ": " + result.getFailedSeatIds());
         }
 
         return result;
+    }
+
+    /**
+     * gRPC entry point: failures are represented in HoldResponse.success=false
+     * (with failed_seat_ids) instead of an exception.
+     */
+    public HoldResult attemptHoldSeats(String eventId, HoldSeatsRequest request) {
+        int ttl = (request.getTtlSeconds() != null && request.getTtlSeconds() > 0)
+                ? request.getTtlSeconds()
+                : defaultTtlSeconds;
+
+        SeatLockStrategy strategy = strategyFactory.getStrategy();
+        return strategy.hold(eventId, request.getSeatIds(), request.getBookingId(), Duration.ofSeconds(ttl));
     }
 
     public void releaseSeats(String eventId, ReleaseSeatsRequest request) {
@@ -94,6 +105,11 @@ public class SeatInventoryService {
     public void confirmSeats(String eventId, ConfirmSeatsRequest request) {
         SeatLockStrategy strategy = strategyFactory.getStrategy();
         strategy.confirm(eventId, request.getSeatIds(), request.getBookingId());
+    }
+
+    public void revertSold(String eventId, List<String> seatIds, String bookingId) {
+        SeatLockStrategy strategy = strategyFactory.getStrategy();
+        strategy.revertSold(eventId, seatIds, bookingId);
     }
 
     @Transactional(readOnly = true)

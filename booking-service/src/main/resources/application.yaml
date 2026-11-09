@@ -36,7 +36,13 @@ server:
   port: 8084
 
 seat-inventory:
+  # grpc (default) | http | none. "none" is only used by tests with a mocked bean.
+  client: ${SEAT_INVENTORY_CLIENT:grpc}
   url: ${SEAT_INVENTORY_URL:http://localhost:8083}
+  grpc:
+    host: ${SEAT_INVENTORY_GRPC_HOST:localhost}
+    port: ${SEAT_INVENTORY_GRPC_PORT:9083}
+    deadline-ms: ${SEAT_INVENTORY_GRPC_DEADLINE_MS:500}
 
 booking:
   hold-ttl-seconds: ${BOOKING_HOLD_TTL_SECONDS:600}

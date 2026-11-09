@@ -2,12 +2,14 @@ package com.minh.seatinventory.repository;
 
 import com.minh.seatinventory.entity.Seat;
 import com.minh.seatinventory.entity.SeatId;
+import com.minh.seatinventory.enums.SeatStatus;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -27,4 +29,18 @@ public interface SeatRepository extends JpaRepository<Seat, SeatId> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT s FROM Seat s WHERE s.id.eventId = :eventId AND s.id.seatId IN :seatIds ORDER BY s.id.seatId ASC")
     List<Seat> findSeatsForUpdateOrdered(@Param("eventId") String eventId, @Param("seatIds") Collection<String> seatIds);
+
+    /**
+     * Khóa các ghế đang HELD nhưng đã quá held_until để worker giải phóng an toàn,
+     * không tranh chấp với giao dịch hold mới.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT s FROM Seat s
+            WHERE s.status = :status
+              AND s.heldUntil IS NOT NULL
+              AND s.heldUntil < :now
+            ORDER BY s.id.eventId ASC, s.id.seatId ASC
+            """)
+    List<Seat> findExpiredHoldsForUpdate(@Param("status") SeatStatus status, @Param("now") Instant now);
 }

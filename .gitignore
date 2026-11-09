@@ -26,6 +26,9 @@ application-local.properties
 application-local.yml
 application-local.yaml
 
+# Local load-test results
+load-tests/results/
+
 # Runtime logs and JVM diagnostics
 logs/
 *.log

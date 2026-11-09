@@ -22,4 +22,10 @@ public interface SeatLockStrategy {
      * Xác nhận thanh toán thành công: chuyển HELD -> SOLD.
      */
     void confirm(String eventId, List<String> seatIds, String bookingId);
+
+    /**
+     * Hoàn vé: chuyển SOLD -> AVAILABLE. Nếu bookingId được cung cấp, chỉ hoàn
+     * các ghế thuộc booking đó. Gọi lặp lại là no-op.
+     */
+    void revertSold(String eventId, List<String> seatIds, String bookingId);
 }

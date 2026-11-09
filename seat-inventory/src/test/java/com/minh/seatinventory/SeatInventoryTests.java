@@ -9,6 +9,7 @@ import com.minh.seatinventory.entity.Seat;
 import com.minh.seatinventory.entity.SeatId;
 import com.minh.seatinventory.enums.SeatStatus;
 import com.minh.seatinventory.repository.SeatRepository;
+import com.minh.seatinventory.scheduler.HoldExpiredWorker;
 import com.minh.seatinventory.strategy.SeatLockStrategy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -46,7 +47,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
     "spring.datasource.password=",
     "spring.jpa.hibernate.ddl-auto=validate",
     "spring.jpa.show-sql=false",
-    "seat.lock.strategy=pessimistic"
+    "seat.lock.strategy=pessimistic",
+    "grpc.server.port=0",
+    "seat.hold-expiry.initial-delay-ms=3600000",
+    "seat.hold-expiry.sweep-interval-ms=3600000"
 })
 @Transactional
 @Import(SeatInventoryTests.TestConfig.class)
@@ -57,6 +61,7 @@ class SeatInventoryTests {
     @Autowired ObjectMapper objectMapper;
     @Autowired @Qualifier("pessimisticLockStrategy") SeatLockStrategy pessimisticStrategy;
     @Autowired @Qualifier("optimisticLockStrategy") SeatLockStrategy optimisticStrategy;
+    @Autowired HoldExpiredWorker holdExpiredWorker;
 
     MockMvc mvc;
 
@@ -227,5 +232,35 @@ class SeatInventoryTests {
 
         Seat f02 = seatRepository.findById_EventIdAndId_SeatId(eventId, "F-02").orElseThrow();
         assertThat(f02.getStatus()).isEqualTo(SeatStatus.SOLD);
+    }
+
+    @Test
+    void testHoldExpiredWorker_ReleasesOnlyExpiredHeldSeats() {
+        String eventId = "evt-hold-expired-test";
+        Instant past = Instant.now().minusSeconds(60);
+        Instant future = Instant.now().plusSeconds(600);
+
+        seatRepository.saveAll(List.of(
+                Seat.builder().id(new SeatId(eventId, "EXP-01")).tierId("t1")
+                        .status(SeatStatus.HELD).heldByBooking("bkg-expired").heldUntil(past).build(),
+                Seat.builder().id(new SeatId(eventId, "EXP-02")).tierId("t1")
+                        .status(SeatStatus.HELD).heldByBooking("bkg-active").heldUntil(future).build(),
+                Seat.builder().id(new SeatId(eventId, "EXP-03")).tierId("t1")
+                        .status(SeatStatus.AVAILABLE).build()
+        ));
+
+        holdExpiredWorker.releaseExpiredHolds();
+
+        Seat expired = seatRepository.findById_EventIdAndId_SeatId(eventId, "EXP-01").orElseThrow();
+        assertThat(expired.getStatus()).isEqualTo(SeatStatus.AVAILABLE);
+        assertThat(expired.getHeldByBooking()).isNull();
+        assertThat(expired.getHeldUntil()).isNull();
+
+        Seat active = seatRepository.findById_EventIdAndId_SeatId(eventId, "EXP-02").orElseThrow();
+        assertThat(active.getStatus()).isEqualTo(SeatStatus.HELD);
+        assertThat(active.getHeldByBooking()).isEqualTo("bkg-active");
+
+        Seat available = seatRepository.findById_EventIdAndId_SeatId(eventId, "EXP-03").orElseThrow();
+        assertThat(available.getStatus()).isEqualTo(SeatStatus.AVAILABLE);
     }
 }

@@ -3,6 +3,7 @@ package com.minh.seatinventory.strategy.impl;
 import com.minh.seatinventory.dto.response.HoldResult;
 import com.minh.seatinventory.entity.Seat;
 import com.minh.seatinventory.enums.SeatStatus;
+import com.minh.seatinventory.redis.SeatRedisKeys;
 import com.minh.seatinventory.repository.SeatRepository;
 import com.minh.seatinventory.strategy.SeatLockStrategy;
 import lombok.RequiredArgsConstructor;
@@ -64,8 +65,17 @@ public class RedisLuaLockStrategy implements SeatLockStrategy {
             return {1}
             """;
 
+    private static final String REVERT_SOLD_LUA = """
+            for i = 1, #KEYS do
+                if redis.call('GET', KEYS[i]) == 'SOLD' then
+                    redis.call('DEL', KEYS[i])
+                end
+            end
+            return 1
+            """;
+
     private String seatKey(String eventId, String seatId) {
-        return "seat:{" + eventId + "}:" + seatId;
+        return SeatRedisKeys.seatKey(eventId, seatId);
     }
 
     @Override
@@ -178,5 +188,34 @@ public class RedisLuaLockStrategy implements SeatLockStrategy {
             seatRepository.saveAll(toConfirm);
             log.info("Redis confirm succeeded for booking {} on {} seats", bookingId, toConfirm.size());
         }
+    }
+
+    @Override
+    @Transactional
+    public void revertSold(String eventId, List<String> seatIds, String bookingId) {
+        if (seatIds == null || seatIds.isEmpty()) return;
+
+        List<String> distinctSeatIds = seatIds.stream().distinct().toList();
+        List<Seat> seats = seatRepository.findById_EventIdAndId_SeatIdIn(eventId, distinctSeatIds);
+        List<Seat> toRevert = new ArrayList<>();
+        List<String> keysToRevert = new ArrayList<>();
+
+        for (Seat seat : seats) {
+            if (seat.getStatus() == SeatStatus.SOLD
+                    && (bookingId == null || bookingId.isBlank() || bookingId.equals(seat.getHeldByBooking()))) {
+                seat.setStatus(SeatStatus.AVAILABLE);
+                seat.setHeldByBooking(null);
+                seat.setHeldUntil(null);
+                toRevert.add(seat);
+                keysToRevert.add(seatKey(eventId, seat.getId().getSeatId()));
+            }
+        }
+
+        if (toRevert.isEmpty()) return;
+
+        DefaultRedisScript<Long> script = new DefaultRedisScript<>(REVERT_SOLD_LUA, Long.class);
+        redisTemplate.execute(script, keysToRevert);
+        seatRepository.saveAll(toRevert);
+        log.info("Redis revert (SOLD -> AVAILABLE) succeeded for {} seats", toRevert.size());
     }
 }

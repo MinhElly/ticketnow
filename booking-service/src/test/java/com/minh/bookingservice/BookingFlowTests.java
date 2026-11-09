@@ -38,7 +38,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.datasource.username=sa",
         "spring.datasource.password=",
         "spring.jpa.hibernate.ddl-auto=validate",
-        "spring.jpa.show-sql=false"
+        "spring.jpa.show-sql=false",
+        "seat-inventory.client=none"
 })
 @Transactional
 @Import(BookingFlowTests.TestConfig.class)
@@ -61,6 +62,7 @@ class BookingFlowTests {
     @TestConfiguration(proxyBeanMethods = false)
     static class TestConfig {
         @Bean
+        @org.springframework.context.annotation.Primary
         SeatInventoryClient seatInventoryClient() {
             return Mockito.mock(SeatInventoryClient.class);
         }

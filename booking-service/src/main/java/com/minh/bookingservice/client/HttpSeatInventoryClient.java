@@ -3,6 +3,7 @@ package com.minh.bookingservice.client;
 import com.minh.bookingservice.exception.ApiException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.Authentication;
@@ -15,6 +16,7 @@ import java.util.List;
 
 @Component
 @Slf4j
+@ConditionalOnProperty(name = "seat-inventory.client", havingValue = "http")
 public class HttpSeatInventoryClient implements SeatInventoryClient {
 
     private final RestClient restClient;
