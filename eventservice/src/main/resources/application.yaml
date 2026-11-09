@@ -36,4 +36,9 @@ server:
   port: 8081
 
 seat-inventory:
+  client: ${SEAT_INVENTORY_CLIENT:grpc}
   url: ${SEAT_INVENTORY_URL:http://localhost:8083}
+  grpc:
+    host: ${SEAT_INVENTORY_GRPC_HOST:localhost}
+    port: ${SEAT_INVENTORY_GRPC_PORT:9083}
+    deadline-ms: ${SEAT_INVENTORY_GRPC_DEADLINE_MS:5000}

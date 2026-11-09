@@ -1,8 +1,10 @@
 package com.minh.seatinventory.config;
 
+import com.minh.seatinventory.grpc.GrpcAuthInterceptor;
 import com.minh.seatinventory.grpc.SeatInventoryGrpcService;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
+import io.grpc.ServerInterceptors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -23,12 +25,13 @@ public class GrpcServerConfig {
     @ConditionalOnProperty(prefix = "grpc.server", name = "enabled", havingValue = "true", matchIfMissing = true)
     public Server grpcServer(
             @Value("${grpc.server.port:9083}") int port,
-            SeatInventoryGrpcService seatInventoryGrpcService) throws IOException {
+            SeatInventoryGrpcService seatInventoryGrpcService,
+            GrpcAuthInterceptor authInterceptor) throws IOException {
         Server server = ServerBuilder.forPort(port)
-                .addService(seatInventoryGrpcService)
+                .addService(ServerInterceptors.intercept(seatInventoryGrpcService, authInterceptor))
                 .build()
                 .start();
-        log.info("SeatInventory gRPC server started on port {}", server.getPort());
+        log.info("SeatInventory gRPC server started on port {} with GrpcAuthInterceptor", server.getPort());
         return server;
     }
 }
