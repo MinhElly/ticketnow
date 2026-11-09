@@ -3,7 +3,7 @@
     "_postman_id": "9150422e-7c40-516f-9c2b-1b2259823eb6",
     "name": "TicketNow - Current APIs + Keycloak",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "All 31 current Event & Seat Inventory Service operations through Gateway, interactive Keycloak PKCE, security checks, refresh/logout and optional admin account provisioning. Import the companion environment and read README.md. No public self-registration API exists; registrationAllowed is false. No live operations were run when generating this file."
+    "description": "All 36 current Event, Seat Inventory & Booking Service operations through Gateway, interactive Keycloak PKCE, security checks, refresh/logout and optional admin account provisioning. Import the companion environment and read README.md. No public self-registration API exists; registrationAllowed is false. No live operations were run when generating this file."
   },
   "item": [
     {
@@ -1423,7 +1423,209 @@
       ]
     },
     {
-      "name": "07 - Security checks",
+      "name": "07 - Bookings (customer)",
+      "description": "",
+      "item": [
+        {
+          "name": "Create booking",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/bookings",
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customer_access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventId\": \"{{event_id}}\",\n  \"seats\": [\n    {\n      \"seatId\": \"A-01-01\",\n      \"tierId\": \"{{tier_id}}\",\n      \"price\": 500000\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.request.headers.add({key: \"Idempotency-Key\", value: \"pm-idemp-\" + Date.now()});"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) { pm.environment.set(\"booking_id\", pm.response.json().id); }",
+                  "if (pm.response.code === 201) {",
+                  " const b = pm.response.json();",
+                  " pm.test(\"Booking status is AWAITING_PAYMENT\", () => pm.expect(b.status).to.eql(\"AWAITING_PAYMENT\"));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List my bookings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/bookings/me?page=0&size=20",
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customer_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  " const b = pm.response.json();",
+                  " pm.test(\"Page contract\", () => {",
+                  "  pm.expect(b.content).to.be.an(\"array\");",
+                  "  pm.expect(b.totalElements).to.be.a(\"number\");",
+                  " });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get booking",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/bookings/{{booking_id}}",
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customer_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Confirm booking",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/v1/bookings/{{booking_id}}/confirm",
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customer_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  " pm.test(\"Booking status is CONFIRMED\", () => pm.expect(pm.response.json().status).to.eql(\"CONFIRMED\"));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Cancel booking",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{base_url}}/api/v1/bookings/{{booking_id}}/cancel",
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customer_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  " pm.test(\"Booking status is CANCELLED\", () => pm.expect(pm.response.json().status).to.eql(\"CANCELLED\"));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "08 - Security checks",
       "description": "",
       "item": [
         {
@@ -2104,7 +2306,7 @@
       ]
     },
     {
-      "name": "08 - Registration (optional admin provisioning)",
+      "name": "09 - Registration (optional admin provisioning)",
       "description": "Self-registration is currently DISABLED (registrationAllowed=false); there is no /api/v1/auth/register. Set enable_admin_registration=true explicitly, fill local admin credentials and new user fields, then send 01-05 in order. Newly created users log in through the PKCE helper with their own credentials.",
       "item": [
         {
@@ -2378,7 +2580,7 @@
       ]
     },
     {
-      "name": "09 - Refresh and logout (optional)",
+      "name": "10 - Refresh and logout (optional)",
       "description": "",
       "item": [
         {
@@ -2492,7 +2694,7 @@
       ]
     },
     {
-      "name": "10 - Cleanup (optional, deletes test data)",
+      "name": "11 - Cleanup (optional, deletes test data)",
       "description": "Set enable_cleanup=true, then run in order after the other tests. Deletes the resources whose IDs are in the selected environment.",
       "item": [
         {

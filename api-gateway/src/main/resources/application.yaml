@@ -6,6 +6,10 @@ spring:
       server:
         webflux:
           routes:
+            - id: booking-service
+              uri: ${BOOKING_SERVICE_URL:http://localhost:8084}
+              predicates:
+                - Path=/api/v1/bookings,/api/v1/bookings/**
             - id: seat-inventory-service
               uri: ${SEAT_INVENTORY_URL:http://localhost:8083}
               predicates:

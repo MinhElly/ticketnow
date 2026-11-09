@@ -33,7 +33,8 @@ public class SecurityConfig {
                                 ).permitAll()
                                 .pathMatchers(
                                         "/api/v1/events", "/api/v1/events/**",
-                                        "/api/v1/venues", "/api/v1/venues/**"
+                                        "/api/v1/venues", "/api/v1/venues/**",
+                                        "/api/v1/bookings", "/api/v1/bookings/**"
                                 ).authenticated()
                                 .anyExchange().denyAll()
                 )

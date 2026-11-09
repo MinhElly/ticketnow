@@ -139,7 +139,28 @@ folder('06 - Seat inventory (seats & hold)',[
  req('Release seats','POST',base+'/events/{{event_id}}/seats/release',204,auth=bearer('customer_access_token'),body={'seatIds':['A-01-01'],'bookingId':'{{booking_id}}'}),
  req('Confirm seats','POST',base+'/events/{{event_id}}/seats/confirm',204,auth=bearer('customer_access_token'),body={'seatIds':['A-01-02'],'bookingId':'{{booking_id}}'})
 ])
-folder('07 - Security checks',[
+bookingbody={'eventId':'{{event_id}}','seats':[{'seatId':'A-01-01','tierId':'{{tier_id}}','price':500000}]}
+folder('07 - Bookings (customer)',[
+ req('Create booking','POST',base+'/bookings',201,auth=bearer('customer_access_token'),body=bookingbody,save='booking_id',pre='pm.request.headers.add({key: "Idempotency-Key", value: "pm-idemp-" + Date.now()});',test='''if (pm.response.code === 201) {
+ const b = pm.response.json();
+ pm.test("Booking status is AWAITING_PAYMENT", () => pm.expect(b.status).to.eql("AWAITING_PAYMENT"));
+}'''),
+ req('List my bookings','GET',base+'/bookings/me?page=0&size=20',auth=bearer('customer_access_token'),test='''if (pm.response.code === 200) {
+ const b = pm.response.json();
+ pm.test("Page contract", () => {
+  pm.expect(b.content).to.be.an("array");
+  pm.expect(b.totalElements).to.be.a("number");
+ });
+}'''),
+ req('Get booking','GET',base+'/bookings/{{booking_id}}',auth=bearer('customer_access_token')),
+ req('Confirm booking','POST',base+'/bookings/{{booking_id}}/confirm',200,auth=bearer('customer_access_token'),test='''if (pm.response.code === 200) {
+ pm.test("Booking status is CONFIRMED", () => pm.expect(pm.response.json().status).to.eql("CONFIRMED"));
+}'''),
+ req('Cancel booking','POST',base+'/bookings/{{booking_id}}/cancel',200,auth=bearer('customer_access_token'),test='''if (pm.response.code === 200) {
+ pm.test("Booking status is CANCELLED", () => pm.expect(pm.response.json().status).to.eql("CANCELLED"));
+}''')
+])
+folder('08 - Security checks',[
  req('No token returns 401','GET',base+'/events',401,auth=no),
  req('Invalid token returns 401','GET',base+'/events',401,auth={'type':'bearer','bearer':[{'key':'token','value':'invalid-token','type':'string'}]}),
  req('Customer cannot create venue','POST',base+'/venues',403,auth=bearer('customer_access_token'),body=venue),
@@ -161,7 +182,7 @@ folder('07 - Security checks',[
  req('Invalid pagination returns 400','GET',base+'/events?size=101',400,auth=bearer('organizer_access_token'))
 ])
 guard='if (pm.environment.get("enable_admin_registration") !== "true") pm.execution.skipRequest();'
-folder('08 - Registration (optional admin provisioning)',[
+folder('09 - Registration (optional admin provisioning)',[
  req('01 - Login Keycloak master admin','POST','{{keycloak_url}}/realms/master/protocol/openid-connect/token',auth=no,form={'grant_type':'password','client_id':'admin-cli','username':'{{keycloak_admin_username}}','password':'{{keycloak_admin_password}}'},test='''if (pm.response.code === 200) {
  const b=pm.response.json(); pm.expect(b.access_token).to.be.a("string");
  pm.environment.set("keycloak_admin_access_token", b.access_token);
@@ -194,8 +215,8 @@ refresh=req('Refresh organizer token','POST',kc+'/token',auth=no,form={'grant_ty
 logout=req('Logout organizer session','POST',kc+'/logout',204,auth=no,form={'client_id':'{{client_id}}','refresh_token':'{{organizer_refresh_token}}'},description='Ends the Keycloak session. Existing JWT access tokens can remain valid until expiry at resource servers.',test='''if(pm.response.code === 204) {
  pm.environment.unset("organizer_access_token"); pm.environment.unset("organizer_refresh_token");
 }''',pre='if (pm.environment.get("enable_logout") !== "true") pm.execution.skipRequest();')
-folder('09 - Refresh and logout (optional)',[refresh,logout])
-folder('10 - Cleanup (optional, deletes test data)',[
+folder('10 - Refresh and logout (optional)',[refresh,logout])
+folder('11 - Cleanup (optional, deletes test data)',[
  req('Delete seat section','DELETE',base+'/events/{{event_id}}/sections/{{section_id}}',204,auth=bearer('organizer_access_token')),
  req('Delete ticket tier','DELETE',base+'/events/{{event_id}}/ticket-tiers/{{tier_id}}',204,auth=bearer('organizer_access_token')),
  req('Delete draft event','DELETE',base+'/events/{{event_id}}',204,auth=bearer('organizer_access_token')),
@@ -208,10 +229,10 @@ for f in folders:
   if len(pres) > 1:
    joined = '\n'.join('\n'.join(e['script']['exec']) for e in pres)
    i['event'] = [event('prerequest', joined)] + [e for e in i['event'] if e['listen'] != 'prerequest']
-collection={'info':{'_postman_id':str(uuid.uuid5(uuid.NAMESPACE_URL, 'ticketnow-postman-collection')),'name':'TicketNow - Current APIs + Keycloak','schema':'https://schema.getpostman.com/json/collection/v2.1.0/collection.json','description':'All 31 current Event & Seat Inventory Service operations through Gateway, interactive Keycloak PKCE, security checks, refresh/logout and optional admin account provisioning. Import the companion environment and read README.md. No public self-registration API exists; registrationAllowed is false. No live operations were run when generating this file.'},'item':folders}
+collection={'info':{'_postman_id':str(uuid.uuid5(uuid.NAMESPACE_URL, 'ticketnow-postman-collection')),'name':'TicketNow - Current APIs + Keycloak','schema':'https://schema.getpostman.com/json/collection/v2.1.0/collection.json','description':'All 36 current Event, Seat Inventory & Booking Service operations through Gateway, interactive Keycloak PKCE, security checks, refresh/logout and optional admin account provisioning. Import the companion environment and read README.md. No public self-registration API exists; registrationAllowed is false. No live operations were run when generating this file.'},'item':folders}
 env={'base_url':'http://localhost:8080','keycloak_url':'http://localhost:8180','realm':'ticketnow','client_id':'ticketnow-postman','callback_url':'https://oauth.pstmn.io/v1/callback','starts_at':'2026-12-20T12:00:00Z','ends_at':'2026-12-20T15:00:00Z','venue_id':'','event_id':'','tier_id':'','section_id':'','lifecycle_event_id':'','lifecycle_tier_id':'','lifecycle_section_id':'','cancel_event_id':'','booking_id':'bkg-demo-001','admin_access_token':'','organizer_access_token':'','customer_access_token':'','other_organizer_access_token':'','admin_sub':'','organizer_sub':'','customer_sub':'','organizer_refresh_token':'','enable_admin_registration':'false','keycloak_admin_username':'','keycloak_admin_password':'','keycloak_admin_access_token':'','new_username':'','new_email':'','new_user_password':'','new_user_id':'','customer_role_id':'','enable_cleanup':'false','enable_logout':'false'}
 secrets={k for k in env if 'token' in k or 'password' in k}
 environment={'id':str(uuid.uuid5(uuid.NAMESPACE_URL, 'ticketnow-postman-local-environment')),'name':'TicketNow - Local','values':[{'key':k,'value':v,'enabled':True,'type':'secret' if k in secrets else 'default'} for k,v in env.items()],'_postman_variable_scope':'environment'}
 (out/'TicketNow.postman_collection.json').write_text(json.dumps(collection,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
 (out/'TicketNow.local.postman_environment.json').write_text(json.dumps(environment,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
-print('Created collection:',sum(len(f['item']) for f in folders),'requests; 31 business operations covered')
+print('Created collection:',sum(len(f['item']) for f in folders),'requests; 36 business operations covered')
