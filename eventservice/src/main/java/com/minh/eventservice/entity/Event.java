@@ -37,6 +37,12 @@ public class Event {
     @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(nullable = false, length = 20)
     private EventStatus status = EventStatus.DRAFT;
+    @Column(length = 255, unique = true)
+    private String slug;
+    @Column(length = 100)
+    private String category;
+    @Column(name = "image_url", length = 1000)
+    private String imageUrl;
     @Version
     private long version;
     @Column(nullable = false, updatable = false)
@@ -55,4 +61,3 @@ public class Event {
         updatedAt = Instant.now();
     }
 }
-

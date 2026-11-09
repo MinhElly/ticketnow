@@ -33,6 +33,13 @@ hs_err_pid*
 replay_pid*
 *.hprof
 
+# Frontend and Node dependencies
+node_modules/
+.next/
+dist/
+out/
+.pnpm-store/
+
 # OS and editor temporary files
 .DS_Store
 Thumbs.db

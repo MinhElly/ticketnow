@@ -8,6 +8,7 @@ import com.minh.eventservice.dto.response.EventResponse;
 import com.minh.eventservice.dto.response.PageResponse;
 import com.minh.eventservice.entity.Event;
 import com.minh.eventservice.entity.SeatSection;
+import com.minh.eventservice.entity.TicketTier;
 import com.minh.eventservice.enums.EventStatus;
 import com.minh.eventservice.exception.ApiException;
 import com.minh.eventservice.repository.EventRepository;
@@ -23,8 +24,10 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -48,25 +51,42 @@ public class EventService {
             requireOwnerOrAdmin(event);
         }
     }
-    public Event require(String id) {
-        return events.findById(id).orElseThrow(() -> ApiException.notFound("Event"));
+    public Event require(String idOrSlug) {
+        return events.findById(idOrSlug)
+                .or(() -> events.findBySlug(idOrSlug))
+                .orElseThrow(() -> ApiException.notFound("Event"));
     }
 
     public void requireDraft(Event e) {
         if (e.getStatus() != EventStatus.DRAFT) throw ApiException.conflict("Only draft events can be modified");
     }
 
+    public Integer getTotalConfiguredSeats(String eventId) {
+        return sections.findByEventIdOrderByNameAsc(eventId).stream()
+                .mapToInt(s -> s.getRowCount() * s.getSeatsPerRow())
+                .sum();
+    }
+
+    public BigDecimal getLowestPrice(String eventId) {
+        var tierList = tiers.findByEventIdOrderByPriceAsc(eventId);
+        return tierList.isEmpty() ? null : tierList.get(0).getPrice();
+    }
+
+    private EventResponse toResponse(Event e) {
+        return EventResponse.from(e, getTotalConfiguredSeats(e.getId()), getLowestPrice(e.getId()));
+    }
+
     public EventResponse get(String id) {
         Event event = require(id);
         requireReadable(event);
-        return EventResponse.from(event);
+        return toResponse(event);
     }
 
     public PageResponse<EventResponse> list(int page, int size) {
         var pageable = PageRequest.of(page, size, Sort.by("startsAt").and(Sort.by("id")));
         var statuses = List.of(EventStatus.PUBLISHED, EventStatus.ON_SALE, EventStatus.CLOSED);
 
-        return PageResponse.from(events.findByStatusIn(statuses, pageable).map(EventResponse::from));
+        return PageResponse.from(events.findByStatusIn(statuses, pageable).map(this::toResponse));
     }
 
     @PreAuthorize("hasAnyRole('organizer', 'admin')")
@@ -78,7 +98,7 @@ public class EventService {
                 ? events.findByOrganizerIdAndStatus(organizerId, status, pageable)
                 : events.findByOrganizerId(organizerId, pageable);
 
-        return PageResponse.from(eventPage.map(EventResponse::from));
+        return PageResponse.from(eventPage.map(this::toResponse));
     }
 
     private void apply(Event e, EventRequest r) {
@@ -89,15 +109,46 @@ public class EventService {
         e.setVenue(venues.require(r.venueId()));
         e.setStartsAt(r.startsAt());
         e.setEndsAt(r.endsAt());
+        if (r.category() != null) e.setCategory(r.category().trim());
+        if (r.imageUrl() != null) e.setImageUrl(r.imageUrl().trim());
+        if (r.slug() != null && !r.slug().isBlank()) {
+            String trimmedSlug = r.slug().trim();
+            if (!trimmedSlug.equals(e.getSlug()) && events.existsBySlug(trimmedSlug)) {
+                throw new ApiException(HttpStatus.CONFLICT, "Slug already exists");
+            }
+            e.setSlug(trimmedSlug);
+        } else if (e.getSlug() == null) {
+            e.setSlug(generateSlug(e.getTitle(), e.getId()));
+        }
     }
+
+    private String generateSlug(String title, String id) {
+        String base = java.text.Normalizer.normalize(title, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{InCombiningDiacriticalMarks}+", "")
+                .toLowerCase()
+                .replaceAll("[đĐ]", "d")
+                .replaceAll("[^a-z0-9\\s-]", "")
+                .replaceAll("\\s+", "-")
+                .replaceAll("-+", "-")
+                .replaceAll("^-|-$", "");
+        if (base.isBlank()) {
+            return id != null ? id : UUID.randomUUID().toString();
+        }
+        if (events.existsBySlug(base)) {
+            return base + "-" + (id != null ? id.substring(0, 8) : UUID.randomUUID().toString().substring(0, 8));
+        }
+        return base;
+    }
+
     @PreAuthorize("hasAnyRole('organizer', 'admin')")
     @Transactional
     public EventResponse create(EventRequest r) {
         Event e = new Event();
         apply(e, r);
         e.setOrganizerId(currentUser.subject());
-        return EventResponse.from(events.saveAndFlush(e));
+        return toResponse(events.saveAndFlush(e));
     }
+
     @PreAuthorize("hasAnyRole('organizer', 'admin')")
     @Transactional
     public EventResponse update(String id, EventRequest r) {
@@ -105,8 +156,9 @@ public class EventService {
         requireOwnerOrAdmin(e);
         requireDraft(e);
         apply(e, r);
-        return EventResponse.from(events.saveAndFlush(e));
+        return toResponse(events.saveAndFlush(e));
     }
+
     @PreAuthorize("hasAnyRole('organizer', 'admin')")
     @Transactional
     public void delete(String id) {
@@ -125,8 +177,10 @@ public class EventService {
     public EventResponse publish(String id) {
         Event e = require(id);
         requireOwnerOrAdmin(e);
-        if (e.getStatus() != EventStatus.DRAFT) {
-            throw ApiException.conflict("Only draft events can be published (current status: " + e.getStatus() + ")");
+        requireDraft(e);
+
+        if (!e.getEndsAt().isAfter(e.getStartsAt())) {
+            throw ApiException.badRequest("Event endsAt must be strictly after startsAt");
         }
         var tierList = tiers.findByEventIdOrderByPriceAsc(id);
         if (tierList.isEmpty()) {
@@ -157,7 +211,7 @@ public class EventService {
         seatInventoryClient.initializeSeats(id, specs);
 
         e.setStatus(EventStatus.PUBLISHED);
-        return EventResponse.from(events.saveAndFlush(e));
+        return toResponse(events.saveAndFlush(e));
     }
 
     @PreAuthorize("hasAnyRole('organizer', 'admin')")
@@ -169,7 +223,7 @@ public class EventService {
             throw ApiException.conflict("Only published events can be opened for sale (current status: " + e.getStatus() + ")");
         }
         e.setStatus(EventStatus.ON_SALE);
-        return EventResponse.from(events.saveAndFlush(e));
+        return toResponse(events.saveAndFlush(e));
     }
 
     @PreAuthorize("hasAnyRole('organizer', 'admin')")
@@ -181,7 +235,7 @@ public class EventService {
             throw ApiException.conflict("Only on-sale events can be closed (current status: " + e.getStatus() + ")");
         }
         e.setStatus(EventStatus.CLOSED);
-        return EventResponse.from(events.saveAndFlush(e));
+        return toResponse(events.saveAndFlush(e));
     }
 
     @PreAuthorize("hasAnyRole('organizer', 'admin')")
@@ -196,6 +250,6 @@ public class EventService {
             throw ApiException.conflict("Closed events cannot be cancelled");
         }
         e.setStatus(EventStatus.CANCELLED);
-        return EventResponse.from(events.saveAndFlush(e));
+        return toResponse(events.saveAndFlush(e));
     }
 }

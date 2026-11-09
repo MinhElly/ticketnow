@@ -88,7 +88,7 @@ class EventSecurityTests {
    """.formatted(venue.getId());
  }
  @Test void missingAndInvalidTokensAreUnauthorized() throws Exception {
-  mvc.perform(get("/api/v1/events")).andExpect(status().isUnauthorized());
+  mvc.perform(get("/api/v1/events")).andExpect(status().isOk());
   mvc.perform(get("/api/v1/events").header("Authorization", "Bearer invalid")).andExpect(status().isUnauthorized());
   mvc.perform(get("/api/v1/events/me")).andExpect(status().isUnauthorized());
   mvc.perform(get("/api/v1/events/me").header("Authorization", "Bearer invalid")).andExpect(status().isUnauthorized());

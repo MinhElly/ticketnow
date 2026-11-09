@@ -63,7 +63,7 @@ class EventserviceApplicationTests {
 
     @Test
     void migrationIsAppliedAndSecondRunIsNoOp() {
-        assertEquals("2", flyway.info().current().getVersion().toString());
+        assertEquals("3", flyway.info().current().getVersion().toString());
         assertEquals(0, flyway.migrate().migrationsExecuted);
     }
 

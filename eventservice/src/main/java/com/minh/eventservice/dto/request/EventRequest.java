@@ -11,6 +11,12 @@ public record EventRequest(
         @Size(max = 20000) String description,
         @NotBlank @Size(max = 36) String venueId,
         @NotNull Instant startsAt,
-        @NotNull Instant endsAt) {
-}
+        @NotNull Instant endsAt,
+        @Size(max = 255) String slug,
+        @Size(max = 100) String category,
+        @Size(max = 1000) String imageUrl) {
 
+    public EventRequest(String title, String description, String venueId, Instant startsAt, Instant endsAt) {
+        this(title, description, venueId, startsAt, endsAt, null, null, null);
+    }
+}

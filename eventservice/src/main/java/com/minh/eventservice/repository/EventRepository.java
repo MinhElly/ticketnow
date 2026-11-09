@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Collection;
+import java.util.Optional;
 
 public interface EventRepository extends JpaRepository<Event, String> {
     boolean existsByVenueId(String venueId);
@@ -16,4 +17,8 @@ public interface EventRepository extends JpaRepository<Event, String> {
     Page<Event> findByOrganizerId(String organizerId, Pageable pageable);
 
     Page<Event> findByOrganizerIdAndStatus(String organizerId, EventStatus status, Pageable pageable);
+
+    Optional<Event> findBySlug(String slug);
+
+    boolean existsBySlug(String slug);
 }
