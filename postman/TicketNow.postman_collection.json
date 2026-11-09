@@ -3,7 +3,7 @@
     "_postman_id": "9150422e-7c40-516f-9c2b-1b2259823eb6",
     "name": "TicketNow - Current APIs + Keycloak",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "All 41 current Event, Seat Inventory, Booking & Payment Service operations through Gateway, interactive Keycloak PKCE, security checks, refresh/logout and optional admin account provisioning. Import the companion environment and read README.md. No public self-registration API exists; registrationAllowed is false. No live operations were run when generating this file."
+    "description": "All 46 current Event, Seat Inventory, Booking, Payment & Ticket Service operations through Gateway, interactive Keycloak PKCE, security checks, refresh/logout and optional admin account provisioning. Import the companion environment and read README.md. No public self-registration API exists; registrationAllowed is false. No live operations were run when generating this file."
   },
   "item": [
     {
@@ -1816,7 +1816,212 @@
       ]
     },
     {
-      "name": "09 - Security checks",
+      "name": "09 - Tickets (customer & staff)",
+      "description": "",
+      "item": [
+        {
+          "name": "Manual issue ticket",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/tickets/manual-issue",
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{organizer_access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"bookingId\": \"{{booking_id}}\",\n  \"eventId\": \"{{event_id}}\",\n  \"seatId\": \"seat-demo-01\",\n  \"seatCode\": \"A-01\",\n  \"tierName\": \"VIP\",\n  \"price\": 500000,\n  \"currency\": \"VND\",\n  \"userId\": \"{{customer_sub}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 201\", () => pm.response.to.have.status(201));",
+                  "if (pm.response.code === 201) { pm.environment.set(\"ticket_id\", pm.response.json().id); }",
+                  "if (pm.response.code === 201) {",
+                  " const b = pm.response.json();",
+                  " pm.test(\"Ticket code present\", () => pm.expect(b.ticketCode).to.be.a(\"string\"));",
+                  " if (b.ticketCode) pm.environment.set(\"ticket_code\", b.ticketCode);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get ticket by id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/tickets/{{ticket_id}}",
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customer_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get tickets by booking",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/tickets/by-booking/{{booking_id}}",
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customer_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  " pm.test(\"Returns tickets list\", () => pm.expect(pm.response.json()).to.be.an(\"array\"));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get my tickets",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/api/v1/tickets/my-tickets",
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customer_access_token}}",
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  " pm.test(\"Returns user tickets list\", () => pm.expect(pm.response.json()).to.be.an(\"array\"));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Check in ticket",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/tickets/check-in",
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{organizer_access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ticketCode\": \"{{ticket_code}}\",\n  \"deviceInfo\": \"GATE-DEMO-01\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 200\", () => pm.response.to.have.status(200));",
+                  "if (pm.response.code === 200) {",
+                  " pm.test(\"Check-in successful\", () => pm.expect(pm.response.json().success).to.be.true);",
+                  " pm.test(\"Status is USED\", () => pm.expect(pm.response.json().status).to.eql(\"USED\"));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "10 - Security checks",
       "description": "",
       "item": [
         {
@@ -2410,6 +2615,51 @@
           ]
         },
         {
+          "name": "Customer cannot check in ticket",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{base_url}}/api/v1/tickets/check-in",
+            "description": "",
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{customer_access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ticketCode\": \"{{ticket_code}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "response": [],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test(\"HTTP 403\", () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
           "name": "Other organizer cannot edit draft",
           "request": {
             "method": "PUT",
@@ -2497,7 +2747,7 @@
       ]
     },
     {
-      "name": "10 - Registration (optional admin provisioning)",
+      "name": "11 - Registration (optional admin provisioning)",
       "description": "Self-registration is currently DISABLED (registrationAllowed=false); there is no /api/v1/auth/register. Set enable_admin_registration=true explicitly, fill local admin credentials and new user fields, then send 01-05 in order. Newly created users log in through the PKCE helper with their own credentials.",
       "item": [
         {
@@ -2771,7 +3021,7 @@
       ]
     },
     {
-      "name": "11 - Refresh and logout (optional)",
+      "name": "12 - Refresh and logout (optional)",
       "description": "",
       "item": [
         {
@@ -2885,7 +3135,7 @@
       ]
     },
     {
-      "name": "12 - Cleanup (optional, deletes test data)",
+      "name": "13 - Cleanup (optional, deletes test data)",
       "description": "Set enable_cleanup=true, then run in order after the other tests. Deletes the resources whose IDs are in the selected environment.",
       "item": [
         {

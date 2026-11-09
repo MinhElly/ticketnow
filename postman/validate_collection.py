@@ -8,7 +8,7 @@ collection = json.loads((root / 'TicketNow.postman_collection.json').read_text(e
 environment = json.loads((root / 'TicketNow.local.postman_environment.json').read_text(encoding='utf-8'))
 variables = {v['key']: v['value'] for v in environment['values']}
 requests = [i for folder in collection['item'] for i in folder['item']]
-assert len(requests) == 75
+assert len(requests) == 81
 assert len({i['name'] for i in requests}) == len(requests)
 assert all(not value for key, value in variables.items() if 'password' in key or 'token' in key)
 refs = set(re.findall(r'\{\{([a-z_]+)\}\}', json.dumps(collection)))
@@ -19,7 +19,8 @@ controller_dirs = [
     root.parent / 'eventservice/src/main/java/com/minh/eventservice/controller',
     root.parent / 'seat-inventory/src/main/java/com/minh/seatinventory/controller',
     root.parent / 'booking-service/src/main/java/com/minh/bookingservice/controller',
-    root.parent / 'payment-service/src/main/java/com/minh/paymentservice/controller'
+    root.parent / 'payment-service/src/main/java/com/minh/paymentservice/controller',
+    root.parent / 'ticket-service/src/main/java/com/minh/ticketservice/controller'
 ]
 for c_dir in controller_dirs:
     for path in c_dir.glob('*Controller.java'):
@@ -41,5 +42,5 @@ for item in requests:
         result = subprocess.run(['node', '--check'], input=code, text=True, capture_output=True)
         assert result.returncode == 0, (item['name'], result.stderr)
 assert expected == actual, {'missing': list(expected-actual), 'extra': list(actual-expected)}
-assert len(expected) == 41
+assert len(expected) == 46
 print(f'PASS: {len(requests)} requests; all {len(expected)} controller operations covered; variables resolved; scripts parse; no saved tokens/passwords.')

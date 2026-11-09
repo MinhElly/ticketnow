@@ -39,7 +39,8 @@ public class SecurityConfig {
                                         "/api/v1/events", "/api/v1/events/**",
                                         "/api/v1/venues", "/api/v1/venues/**",
                                         "/api/v1/bookings", "/api/v1/bookings/**",
-                                        "/api/v1/payments", "/api/v1/payments/**"
+                                        "/api/v1/payments", "/api/v1/payments/**",
+                                        "/api/v1/tickets", "/api/v1/tickets/**"
                                 ).authenticated()
                                 .anyExchange().denyAll()
                 )

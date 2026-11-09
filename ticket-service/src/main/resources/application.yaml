@@ -1,0 +1,66 @@
+spring:
+  config:
+    import:
+      - "optional:file:./deploy/compose/.env[.properties]"
+      - "optional:file:../deploy/compose/.env[.properties]"
+  application:
+    name: ticket-service
+  datasource:
+    url: ${TICKET_DB_URL:jdbc:mariadb://${DB_HOST:localhost}:${DB_PORT:3307}/${TICKET_DB_NAME:ticketnow_ticket}?createDatabaseIfNotExist=true}
+    username: ${TICKET_DB_USERNAME:${DB_ROOT_USERNAME:root}}
+    password: ${TICKET_DB_PASSWORD:${DB_ROOT_PASSWORD:${DB_PASSWORD}}}
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: false
+    clean-disabled: true
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        jdbc:
+          time_zone: UTC
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: http://localhost:8180/realms/ticketnow
+          audiences:
+            - ticketnow-api
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+    consumer:
+      group-id: ticket-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+server:
+  port: 8086
+
+minio:
+  enabled: ${MINIO_ENABLED:true}
+  endpoint: ${MINIO_ENDPOINT:http://localhost:9000}
+  access-key: ${MINIO_ACCESS_KEY:admin}
+  secret-key: ${MINIO_SECRET_KEY:ticketnow_minio}
+  bucket: ${MINIO_BUCKET:ticketnow-tickets}
+
+ticket:
+  qr:
+    secret: ${TICKET_QR_SECRET:ticketnow_secret_qr_signature_key_2026}
+  kafka:
+    enabled: ${TICKET_KAFKA_ENABLED:true}
+  outbox:
+    relay:
+      enabled: ${TICKET_OUTBOX_RELAY_ENABLED:true}
+      fixed-delay-ms: ${TICKET_OUTBOX_RELAY_DELAY:3000}

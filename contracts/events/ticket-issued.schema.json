@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ticketnow.com/schemas/events/ticket-issued.schema.json",
+  "title": "TicketIssuedPayload",
+  "type": "object",
+  "required": ["ticketId", "ticketCode", "bookingId", "eventId", "seatId", "seatCode", "tierName", "price", "userId", "qrCodeUrl"],
+  "properties": {
+    "ticketId": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier of the ticket"
+    },
+    "ticketCode": {
+      "type": "string",
+      "description": "Human-readable unique ticket code for customer reference and check-in"
+    },
+    "bookingId": {
+      "type": "string",
+      "description": "Associated booking identifier"
+    },
+    "eventId": {
+      "type": "string",
+      "description": "Associated event identifier"
+    },
+    "seatId": {
+      "type": "string",
+      "description": "Specific seat identifier"
+    },
+    "seatCode": {
+      "type": "string",
+      "description": "Seat code, e.g. A-12, VIP-01"
+    },
+    "tierName": {
+      "type": "string",
+      "description": "Tier name, e.g. VIP, Standard"
+    },
+    "price": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Price paid for this ticket"
+    },
+    "userId": {
+      "type": "string",
+      "description": "Owner user identifier"
+    },
+    "qrCodeUrl": {
+      "type": "string",
+      "format": "uri",
+      "description": "Public URL or MinIO path to the generated QR code image"
+    }
+  }
+}
