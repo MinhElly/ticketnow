@@ -19,6 +19,11 @@ public class CurrentUser {
         return "anonymous";
     }
 
+    public boolean isAuthenticated() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth instanceof JwtAuthenticationToken;
+    }
+
     public boolean isAdmin() {
         return hasRole("admin");
     }

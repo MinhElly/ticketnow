@@ -39,13 +39,7 @@ public class OutboxRelayService {
         for (OutboxMessage message : pending) {
             try {
                 kafkaTemplate.send(topicName, message.getAggregateId(), message.getPayload())
-                        .whenComplete((result, ex) -> {
-                            if (ex != null) {
-                                log.error("Failed to publish ticket event {}: {}", message.getId(), ex.getMessage());
-                            } else {
-                                log.debug("Published ticket event {} to partition {}", message.getId(), result.getRecordMetadata().partition());
-                            }
-                        });
+                        .get(5, java.util.concurrent.TimeUnit.SECONDS);
 
                 message.setStatus("PROCESSED");
                 message.setProcessedAt(Instant.now());

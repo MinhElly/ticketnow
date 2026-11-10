@@ -128,7 +128,7 @@
       "credentials": [
         {
           "type": "password",
-          "value": "${KC_DEMO_PASSWORD}",
+          "value": "customer123",
           "temporary": false
         }
       ],
@@ -147,7 +147,7 @@
       "credentials": [
         {
           "type": "password",
-          "value": "${KC_DEMO_PASSWORD}",
+          "value": "organizer123",
           "temporary": false
         }
       ],
@@ -166,7 +166,7 @@
       "credentials": [
         {
           "type": "password",
-          "value": "${KC_DEMO_PASSWORD}",
+          "value": "admin123",
           "temporary": false
         }
       ],

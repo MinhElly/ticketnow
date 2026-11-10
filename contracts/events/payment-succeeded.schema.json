@@ -11,6 +11,9 @@
     "bookingId": {
       "type": "string"
     },
+    "userId": {
+      "type": "string"
+    },
     "orderCode": {
       "type": "integer"
     },

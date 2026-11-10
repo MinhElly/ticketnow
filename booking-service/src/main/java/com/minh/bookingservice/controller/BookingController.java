@@ -32,7 +32,6 @@ public class BookingController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('customer', 'organizer', 'admin')")
     public ResponseEntity<BookingResponse> getBooking(@PathVariable String id) {
         BookingResponse response = bookingService.getBooking(id);
         return ResponseEntity.ok(response);

@@ -64,7 +64,6 @@ public class SeatInventoryController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('customer', 'organizer', 'admin')")
     public ResponseEntity<List<SeatResponse>> getEventSeats(
             @PathVariable String eventId
     ) {

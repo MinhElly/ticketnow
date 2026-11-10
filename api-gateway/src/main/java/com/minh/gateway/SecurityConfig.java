@@ -29,6 +29,7 @@ public class SecurityConfig {
                                 .pathMatchers(HttpMethod.GET,
                                         "/api/v1/events", "/api/v1/events/{id}",
                                         "/api/v1/events/{id}/seatmap",
+                                        "/api/v1/events/*/seats", "/api/v1/events/*/seats/**",
                                         "/api/v1/venues", "/api/v1/venues/**"
                                 ).permitAll()
                                 .pathMatchers(

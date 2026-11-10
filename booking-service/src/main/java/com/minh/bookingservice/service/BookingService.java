@@ -22,6 +22,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -182,8 +183,24 @@ public class BookingService {
     public BookingResponse getBooking(String id) {
         Booking booking = bookingRepository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("Booking"));
-        requireOwnerOrAdmin(booking);
+        if (currentUser.isAuthenticated()) {
+            requireOwnerOrAdmin(booking);
+        }
         return BookingResponse.from(booking);
+    }
+
+    @Scheduled(fixedDelayString = "${booking.expiry.sweep-interval-ms:30000}", initialDelay = 15000)
+    @Transactional
+    public void expireAbandonedBookings() {
+        Instant now = Instant.now();
+        List<Booking> expired = bookingRepository.findByStatusAndExpiresAtBefore(BookingStatus.AWAITING_PAYMENT, now);
+        if (expired.isEmpty()) return;
+
+        for (Booking b : expired) {
+            b.setStatus(BookingStatus.EXPIRED);
+        }
+        bookingRepository.saveAll(expired);
+        log.info("Sweep expired {} abandoned bookings", expired.size());
     }
 
     @Transactional(readOnly = true)

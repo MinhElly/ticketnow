@@ -90,10 +90,17 @@ public class TicketPaymentEventListener {
 
             if (bookingNode != null && bookingNode.has("items")) {
                 String eventId = bookingNode.path("eventId").asText("evt-default");
+                if (userId == null || userId.isBlank()) {
+                    userId = bookingNode.path("userId").asText("");
+                }
                 for (JsonNode item : bookingNode.path("items")) {
                     String seatId = item.path("seatId").asText("seat-gen");
-                    String seatCode = item.path("seatCode").asText("S-GEN");
-                    String tierName = item.path("tierName").asText("STANDARD");
+                    String seatCode = item.hasNonNull("seatCode") && !item.path("seatCode").asText().isBlank()
+                            ? item.path("seatCode").asText()
+                            : seatId;
+                    String tierName = item.hasNonNull("tierName") && !item.path("tierName").asText().isBlank()
+                            ? item.path("tierName").asText()
+                            : "STANDARD";
                     BigDecimal price = BigDecimal.valueOf(item.path("price").asDouble(amount.doubleValue()));
 
                     ticketService.issueTicket(

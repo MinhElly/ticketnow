@@ -145,21 +145,25 @@ public class TicketService {
             throw ApiException.forbidden("Only staff, organizer, or admin can perform check-in");
         }
 
-        String ticketCode = request.ticketCode();
-        if ((ticketCode == null || ticketCode.isBlank()) && request.qrPayload() != null && !request.qrPayload().isBlank()) {
+        final String resolvedTicketCode;
+        if (request.ticketCode() != null && !request.ticketCode().isBlank()) {
+            resolvedTicketCode = request.ticketCode();
+        } else if (request.qrPayload() != null && !request.qrPayload().isBlank()) {
             boolean validSig = qrCodeService.verifySignedPayload(request.qrPayload());
             if (!validSig) {
                 throw ApiException.badRequest("Invalid ticket QR signature - potential counterfeit or corrupted payload");
             }
-            ticketCode = qrCodeService.extractTicketCodeFromPayload(request.qrPayload());
-        }
-
-        if (ticketCode == null || ticketCode.isBlank()) {
+            resolvedTicketCode = qrCodeService.extractTicketCodeFromPayload(request.qrPayload());
+        } else {
             throw ApiException.badRequest("Ticket code or valid QR payload must be provided for check-in");
         }
 
-        Ticket ticket = ticketRepository.findByTicketCode(ticketCode)
-                .orElseThrow(() -> ApiException.notFound("Ticket with code " + request.ticketCode()));
+        if (resolvedTicketCode == null || resolvedTicketCode.isBlank()) {
+            throw ApiException.badRequest("Ticket code or valid QR payload must be provided for check-in");
+        }
+
+        Ticket ticket = ticketRepository.findByTicketCode(resolvedTicketCode)
+                .orElseThrow(() -> ApiException.notFound("Ticket with code " + resolvedTicketCode));
 
         if (ticket.getStatus() == TicketStatus.USED) {
             throw ApiException.conflict("Ticket " + ticket.getTicketCode() + " has already been used and cannot be checked in again");
@@ -247,6 +251,7 @@ public class TicketService {
                 t.getCurrency(),
                 t.getUserId(),
                 t.getStatus(),
+                t.getQrPayload(),
                 t.getQrCodeUrl(),
                 t.getCreatedAt(),
                 checkIns

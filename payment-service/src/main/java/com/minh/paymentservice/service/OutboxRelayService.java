@@ -41,7 +41,7 @@ public class OutboxRelayService {
         for (OutboxMessage msg : pending) {
             try {
                 // Key = aggregateId (bookingId) ensures in-order delivery per booking in Kafka
-                kafkaTemplate.send(topicName, msg.getAggregateId(), msg.getPayload());
+                kafkaTemplate.send(topicName, msg.getAggregateId(), msg.getPayload()).get(5, java.util.concurrent.TimeUnit.SECONDS);
                 msg.setPublishedAt(now);
                 outboxRepository.save(msg);
                 publishedCount++;

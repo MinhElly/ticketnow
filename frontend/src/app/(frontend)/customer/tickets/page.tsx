@@ -52,7 +52,7 @@ export default async function TicketsPage() {
             })),
             event,
             owner: user.id,
-            createdAt: firstTicket.issuedAt,
+            createdAt: firstTicket.createdAt || firstTicket.issuedAt,
           }
           allBookings.push(bookingObj)
           seenBookingIds.add(bId)

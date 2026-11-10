@@ -13,6 +13,7 @@ import java.time.Instant;
 public class PaymentSucceededPayload {
     private String paymentId;
     private String bookingId;
+    private String userId;
     private Long orderCode;
     private Long amount;
     private String currency;

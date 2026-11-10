@@ -55,7 +55,7 @@ public class RedisLuaLockStrategy implements SeatLockStrategy {
             local mine = 'HELD:' .. ARGV[1]
             for i = 1, #KEYS do
                 local val = redis.call('GET', KEYS[i])
-                if val ~= mine then
+                if val ~= mine and val ~= 'SOLD' then
                     return {0, KEYS[i]}
                 end
             end
@@ -178,10 +178,13 @@ public class RedisLuaLockStrategy implements SeatLockStrategy {
         List<Seat> seats = seatRepository.findById_EventIdAndId_SeatIdIn(eventId, distinctSeatIds);
         List<Seat> toConfirm = new ArrayList<>();
         for (Seat seat : seats) {
-            if (seat.getStatus() == SeatStatus.HELD && bookingId.equals(seat.getHeldByBooking())) {
-                seat.setStatus(SeatStatus.SOLD);
-                seat.setHeldUntil(null);
-                toConfirm.add(seat);
+            if ((seat.getStatus() == SeatStatus.HELD || seat.getStatus() == SeatStatus.SOLD)
+                    && bookingId.equals(seat.getHeldByBooking())) {
+                if (seat.getStatus() != SeatStatus.SOLD) {
+                    seat.setStatus(SeatStatus.SOLD);
+                    seat.setHeldUntil(null);
+                    toConfirm.add(seat);
+                }
             }
         }
         if (!toConfirm.isEmpty()) {

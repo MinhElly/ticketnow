@@ -18,6 +18,7 @@ public record TicketResponse(
         String currency,
         String userId,
         TicketStatus status,
+        String qrPayload,
         String qrCodeUrl,
         Instant createdAt,
         List<CheckInRecordResponse> checkIns

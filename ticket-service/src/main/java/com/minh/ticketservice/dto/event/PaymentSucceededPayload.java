@@ -1,5 +1,7 @@
 package com.minh.ticketservice.dto.event;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+
 import java.math.BigDecimal;
 
 public record PaymentSucceededPayload(
@@ -9,6 +11,7 @@ public record PaymentSucceededPayload(
         BigDecimal amount,
         String currency,
         String provider,
-        String transactionId,
+        @JsonAlias({"transactionReference", "transactionId"})
+        String transactionReference,
         Long orderCode
 ) {}
